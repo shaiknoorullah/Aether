@@ -1,0 +1,204 @@
+{
+  "teams": [
+    {
+      "emp": "EMP_0001",
+      "name": "seg-power-users",
+      "dept": "discovery",
+      "workflow": "deepresearch",
+      "slug": "v2-seg-power-users",
+      "topic": "Browser power users in 2026 (vim/keyboard-driven, tiling-WM, suckless, developers): their unmet jobs-to-be-done, real workflows, concrete pain points, and the specific features that would make them switch browsers. Include install-count and community-size evidence.",
+      "raw_output": "outputs/v2-seg-power-users.md",
+      "synthesis_output": "docs/research-v2/discovery/seg-power-users.md"
+    },
+    {
+      "emp": "EMP_0002",
+      "name": "seg-knowledge-workers",
+      "dept": "discovery",
+      "workflow": "deepresearch",
+      "slug": "v2-seg-knowledge-workers",
+      "topic": "Knowledge workers and researchers living in the browser in 2026: tab overload, context-switching cost, research-and-capture workflows, note-taking integration, and the browser features they most want. Cite quantitative studies.",
+      "raw_output": "outputs/v2-seg-knowledge-workers.md",
+      "synthesis_output": "docs/research-v2/discovery/seg-knowledge-workers.md"
+    },
+    {
+      "emp": "EMP_0003",
+      "name": "seg-neurodivergent-adhd",
+      "dept": "discovery",
+      "workflow": "deepresearch",
+      "slug": "v2-seg-neurodivergent-adhd",
+      "topic": "Adults with ADHD and neurodivergent users and the web browser (2026): executive-function challenges (task initiation, working memory, time blindness, impulse control), digital accommodations that actually work, shame vs support in productivity tooling, and what an attention-protecting browser should do. Cite clinical and HCI sources.",
+      "raw_output": "outputs/v2-seg-neurodivergent-adhd.md",
+      "synthesis_output": "docs/research-v2/discovery/seg-neurodivergent-adhd.md"
+    },
+    {
+      "emp": "EMP_0004",
+      "name": "seg-privacy-advocates",
+      "dept": "discovery",
+      "workflow": "deepresearch",
+      "slug": "v2-seg-privacy-advocates",
+      "topic": "Privacy-focused browser users in 2026: threat models, anti-fingerprinting expectations, ad/tracker blocking, telemetry refusal, local-first and no-cloud demands, and the triggers that make them switch browsers. Include community sizes (arkenfox, LibreWolf, Mullvad).",
+      "raw_output": "outputs/v2-seg-privacy-advocates.md",
+      "synthesis_output": "docs/research-v2/discovery/seg-privacy-advocates.md"
+    },
+    {
+      "emp": "EMP_0005",
+      "name": "seg-ai-agent-builders",
+      "dept": "discovery",
+      "workflow": "deepresearch",
+      "slug": "v2-seg-ai-agent-builders",
+      "topic": "Developers building browser AI agents and automation in 2026: their needs for agent-safe web access, CDP/IPC control surfaces, sandboxing, observability, reliability, and graceful degradation. What do current tools (browser-use, Playwright MCP, Stagehand) get wrong?",
+      "raw_output": "outputs/v2-seg-ai-agent-builders.md",
+      "synthesis_output": "docs/research-v2/discovery/seg-ai-agent-builders.md"
+    },
+    {
+      "emp": "EMP_0006",
+      "name": "comp-ai-browsers",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-ai-browsers",
+      "topic": "AI-native browsers in 2026 \u2014 Dia (Browser Company), Perplexity Comet, Brave Leo, Opera Aria and Neon, SigmaOS Airis, and Arc's successors: compare their AI features, architecture, model strategy, pricing, and privacy posture in a sourced matrix.",
+      "raw_output": "outputs/v2-comp-ai-browsers.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-ai-browsers.md"
+    },
+    {
+      "emp": "EMP_0007",
+      "name": "comp-power-user-browsers",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-power-user-browsers",
+      "topic": "Power-user browsers in 2026 \u2014 Vivaldi, qutebrowser, Nyxt, Luakit, Arc, and Zen: compare keyboard control, customization depth, workspace/spatial organization, scripting and configuration models, and extensibility.",
+      "raw_output": "outputs/v2-comp-power-user-browsers.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-power-user-browsers.md"
+    },
+    {
+      "emp": "EMP_0008",
+      "name": "comp-customization-forks",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-customization-forks",
+      "topic": "Customization-focused browser forks in 2026 \u2014 Zen, Floorp, Waterfox, LibreWolf, Mullvad, Min, Thorium: compare engine base, theming/ricing capability, privacy defaults, update cadence, and core differentiators.",
+      "raw_output": "outputs/v2-comp-customization-forks.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-customization-forks.md"
+    },
+    {
+      "emp": "EMP_0009",
+      "name": "comp-privacy-browsers",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-privacy-browsers",
+      "topic": "Privacy browsers in 2026 \u2014 Brave, LibreWolf, Mullvad Browser, Tor Browser, DuckDuckGo browser: compare blocking engines, anti-fingerprinting, telemetry stance, default search/monetization, and user base.",
+      "raw_output": "outputs/v2-comp-privacy-browsers.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-privacy-browsers.md"
+    },
+    {
+      "emp": "EMP_0010",
+      "name": "comp-ai-ext-agentinfra",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-ai-ext-agentinfra",
+      "topic": "Browser AI extensions and agent infrastructure in 2026 \u2014 Monica, Sider, Merlin, HARPA, MaxAI, Perplexity extension; and browser-use, Playwright MCP, Stagehand, Browserbase, MultiOn: compare capabilities, architecture, control surfaces, and reliability.",
+      "raw_output": "outputs/v2-comp-ai-ext-agentinfra.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-ai-ext-agentinfra.md"
+    },
+    {
+      "emp": "EMP_0011",
+      "name": "comp-knowledge-focus-tools",
+      "dept": "competitive",
+      "workflow": "compare",
+      "slug": "v2-comp-knowledge-focus-tools",
+      "topic": "Knowledge-capture and focus tools in 2026 \u2014 Obsidian, Logseq, Heptabase, Anytype, are.na, ActivityWatch, Cold Turkey, Freedom, RescueTime: compare capture/graph models, focus-enforcement mechanisms, local-first posture, and integration surfaces a browser could borrow.",
+      "raw_output": "outputs/v2-comp-knowledge-focus-tools.md",
+      "synthesis_output": "docs/research-v2/competitive/comp-knowledge-focus-tools.md"
+    },
+    {
+      "emp": "EMP_0012",
+      "name": "mkt-browser-trends",
+      "dept": "market",
+      "workflow": "deepresearch",
+      "slug": "v2-mkt-browser-trends",
+      "topic": "Web browser market in 2026: market share by browser, switching intent, AI-browser adoption rates, extension ecosystem trends (Manifest V2 deprecation vs V3 limits), and competitive dynamics. Provide sourced statistics with dates.",
+      "raw_output": "outputs/v2-mkt-browser-trends.md",
+      "synthesis_output": "docs/research-v2/market/mkt-browser-trends.md"
+    },
+    {
+      "emp": "EMP_0013",
+      "name": "mkt-adhd-econ-evidence",
+      "dept": "market",
+      "workflow": "deepresearch",
+      "slug": "v2-mkt-adhd-econ-evidence",
+      "topic": "Economic and clinical evidence on adult ADHD and executive function (2020-2026): productivity loss and presenteeism, societal cost, employment and earnings outcomes, and the measured efficacy of external-scaffolding and digital interventions for self-regulation. Peer-reviewed where possible.",
+      "raw_output": "outputs/v2-mkt-adhd-econ-evidence.md",
+      "synthesis_output": "docs/research-v2/market/mkt-adhd-econ-evidence.md"
+    },
+    {
+      "emp": "EMP_0014",
+      "name": "mkt-local-first-ai",
+      "dept": "market",
+      "workflow": "deepresearch",
+      "slug": "v2-mkt-local-first-ai",
+      "topic": "Local-first and on-device AI for desktop apps in 2026: LM Studio, Ollama, llama.cpp, Apple MLX; small-model capability vs frontier, latency, RAM/VRAM footprint, privacy tradeoffs, and the state of OpenAI-compatible local gateways. What can realistically run on a laptop?",
+      "raw_output": "outputs/v2-mkt-local-first-ai.md",
+      "synthesis_output": "docs/research-v2/market/mkt-local-first-ai.md"
+    },
+    {
+      "emp": "EMP_0015",
+      "name": "mkt-automation-sync",
+      "dept": "market",
+      "workflow": "deepresearch",
+      "slug": "v2-mkt-automation-sync",
+      "topic": "Self-hostable workflow/automation engines and local-first sync stacks in 2026: Windmill, Temporal, n8n for durable replayable workflows; and CRDT sync via Yjs/Automerge over Iroh/libp2p/Syncthing. Compare durability guarantees, operational burden, and fit for a browser automation + sync layer.",
+      "raw_output": "outputs/v2-mkt-automation-sync.md",
+      "synthesis_output": "docs/research-v2/market/mkt-automation-sync.md"
+    },
+    {
+      "emp": "EMP_0016",
+      "name": "tech-engine-decision",
+      "dept": "technical",
+      "workflow": "compare",
+      "slug": "v2-tech-engine-decision",
+      "topic": "Browser delivery vehicle for a custom AI-native, keyboard-first, privacy-respecting browser in 2026 \u2014 Firefox/Gecko fork vs Chromium/CEF fork vs a custom shell over a system WebView (WebView2/WKWebView/WebKitGTK) vs a deeply privileged extension: compare control, fork-maintenance burden, extension compatibility, AI/IPC/CDP capability, zero-chrome and native-modal-keybinding feasibility, and licensing. Recommend with reasoning.",
+      "raw_output": "outputs/v2-tech-engine-decision.md",
+      "synthesis_output": "docs/research-v2/technical/tech-engine-decision.md"
+    },
+    {
+      "emp": "EMP_0017",
+      "name": "tech-ai-control-ipc",
+      "dept": "technical",
+      "workflow": "deepresearch",
+      "slug": "v2-tech-ai-control-ipc",
+      "topic": "Agent-safe browser control and IPC for AI-native browsers in 2026: Chrome DevTools Protocol, WebDriver BiDi, WebExtension messaging, Firefox exportFunction/cloneInto, Native Messaging hosts, and MCP. Analyze security, sandboxing, permission models, spoofing/injection risks, and which combination is safest for letting AI agents drive a browser.",
+      "raw_output": "outputs/v2-tech-ai-control-ipc.md",
+      "synthesis_output": "docs/research-v2/technical/tech-ai-control-ipc.md"
+    },
+    {
+      "emp": "EMP_0018",
+      "name": "tech-selfhost-p2p-sync",
+      "dept": "technical",
+      "workflow": "deepresearch",
+      "slug": "v2-tech-selfhost-p2p-sync",
+      "topic": "Building a no-cloud, end-to-end-encrypted, CRDT-based sync layer for a desktop browser in 2026: Yjs vs Automerge for conflict resolution; Iroh vs libp2p vs Syncthing for transport; key management and E2E encryption; performance and offline behavior. What is the most pragmatic stack?",
+      "raw_output": "outputs/v2-tech-selfhost-p2p-sync.md",
+      "synthesis_output": "docs/research-v2/technical/tech-selfhost-p2p-sync.md"
+    },
+    {
+      "emp": "EMP_0019",
+      "name": "syn-whitespace-gaps",
+      "dept": "synthesis",
+      "workflow": "deepresearch",
+      "slug": "v2-syn-whitespace-gaps",
+      "topic": "Feature whitespace no current browser fills in 2026: synthesize across AI-native, power-user, privacy, and neurodivergent needs to identify unserved opportunities \u2014 features no competitor has \u2014 plus the contrarian risks and reasons each gap might exist for good reason. Be specific and sourced.",
+      "raw_output": "outputs/v2-syn-whitespace-gaps.md",
+      "synthesis_output": "docs/research-v2/synthesis/syn-whitespace-gaps.md"
+    },
+    {
+      "emp": "EMP_0020",
+      "name": "syn-redteam-risk",
+      "dept": "synthesis",
+      "workflow": "deepresearch",
+      "slug": "v2-syn-redteam-risk",
+      "topic": "Red-team analysis (2026): why do ambitious AI-native, power-user, privacy-first browsers fail? Examine Arc's wind-down, adoption and distribution barriers, trust and switching costs, maintenance sustainability, and monetization without surveillance. What are the blind spots and assumptions a new browser like this must survive?",
+      "raw_output": "outputs/v2-syn-redteam-risk.md",
+      "synthesis_output": "docs/research-v2/synthesis/syn-redteam-risk.md"
+    }
+  ]
+}

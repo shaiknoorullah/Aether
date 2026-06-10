@@ -1,0 +1,21 @@
+# Provenance: CRDT-Based Sync Layer for Desktop Browser (2026)
+
+- **Date:** 2026-06-10
+- **Rounds:** 1 (direct research, subagents failed)
+- **Sources consulted:** 20 primary sources (official docs, GitHub repos, blog posts, specs, RFC)
+- **Sources accepted:** 20/20
+- **Sources rejected:** 0 (all sources were official/primary)
+- **Verification:** PASS WITH NOTES
+  - M1: Benchmarks test Automerge 2.1.10, not 3.0 (stated as caveat)
+  - M2: WASM memUsed reporting caveat (stated in draft)
+  - M3: Iroh WebSocket relay availability inferred from timeline
+  - M4: ywasm performance anomaly noted in research notes but not in final brief
+  - M5: web_search unavailable (Exa rate limit, no Perplexity/Gemini keys); all evidence from direct URL fetches
+- **Plan:** outputs/.plans/crdt-sync-browser-stack.md
+- **Research files:**
+  - outputs/.drafts/crdt-sync-browser-stack-research-direct.md
+  - outputs/.drafts/crdt-sync-browser-stack-draft.md
+  - outputs/.drafts/crdt-sync-browser-stack-cited.md
+  - outputs/.drafts/crdt-sync-browser-stack-verification.md
+- **Subagent briefs:** outputs/.plans/crdt-sync-browser-stack-T{1,2,3,4}.md (written but subagents failed to spawn)
+- **Degradation:** Subagent module resolution error; all research done by lead in direct mode

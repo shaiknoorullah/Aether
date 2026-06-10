@@ -1,0 +1,3 @@
+outputs/ai-browser-features-comparison.md
+outputs/browser-poweruser-deep.md
+outputs/browser-poweruser-deep.provenance.md
