@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name           aether
-// @description    Aether modal keyboard layer + statusbar (Phase 0 spike)
+// @description    Aether modal keyboard layer + statusbar + palette (f1)
 // @include        main
 // @loadOrder      10
 // ==/UserScript==
 
-// Runs in every browser window via fx-autoconfig. The spike's job:
-// prove chrome-level modal input (incl. overriding reserved shortcuts) and
-// zero-chrome with a summonable urlbar. Everything else is floor work.
+// Runs in every browser window via fx-autoconfig. Thin glue only: keydown →
+// descriptor → aether-keys decision → effect; palette DOM around the pure
+// aether-palette module. Decision logic lives in the .sys.mjs modules.
 
 "use strict";
 
@@ -17,23 +17,45 @@
   const { AetherConfig } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-config.sys.mjs"
   );
+  const { createEngine } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-keys.sys.mjs"
+  );
+  const { REGISTRY, parse, complete, cycle, unknownMessage } =
+    ChromeUtils.importESModule(
+      "chrome://userscripts/content/aether-palette.sys.mjs"
+    );
+  const { BUILTINS, resolveWidgets, createScheduler, renderWidget } =
+    ChromeUtils.importESModule(
+      "chrome://userscripts/content/aether-widgets.sys.mjs"
+    );
   const { ensureActors } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-actors.sys.mjs"
   );
   ensureActors();
 
-  const MODE = { NORMAL: "normal", INSERT: "insert", HINT: "hint" };
-  const PENDING_TIMEOUT_MS = 800;
+  const MODE = { NORMAL: "normal", INSERT: "insert", HINT: "hint", PALETTE: "palette" };
 
   class Aether {
     constructor(win, config) {
       this.win = win;
       this.config = config;
-      this.mode = MODE.NORMAL;
-      this.pending = "";
+      this.engine = createEngine(config);
       this.pendingTimer = null;
       this.contentEditableFocused = false;
+      this.paletteState = { candidates: [], index: -1 };
+      this.url = "";
+      this.message = "";
 
+      this.widgets = resolveWidgets(config);
+      const unknown = (config.statusbar?.widgets ?? []).filter(
+        id => !(id in BUILTINS)
+      );
+      if (unknown.length) {
+        console.info(`[aether] unknown statusbar widgets skipped: ${unknown.join(", ")}`);
+      }
+
+      // Command implementations: every entry takes an optional ctx
+      // {decision, modeBefore, args} and performs one effect.
       this.commands = {
         scroll_down: () => this.sendContent("Aether:Scroll", { dy: this.opt("scroll_step") }),
         scroll_up: () => this.sendContent("Aether:Scroll", { dy: -this.opt("scroll_step") }),
@@ -44,20 +66,30 @@
         back: () => this.win.gBrowser.selectedBrowser.goBack(),
         forward: () => this.win.gBrowser.selectedBrowser.goForward(),
         reload: () => this.win.gBrowser.selectedBrowser.reload(),
-        open: () => this.focusUrlbar(),
+        open: ctx => (ctx?.args?.length ? this.navigate(ctx.args[0]) : this.focusUrlbar()),
         open_tab: () => { this.newTab(); this.focusUrlbar(); },
+        tab: ctx => this.selectTab(ctx?.args?.[0]),
         tab_new: () => { this.newTab(); this.focusUrlbar(); },
         tab_close: () => this.win.gBrowser.removeCurrentTab(),
         tab_next: () => this.win.gBrowser.tabContainer.advanceSelectedTab(1, true),
         tab_prev: () => this.win.gBrowser.tabContainer.advanceSelectedTab(-1, true),
         hints: () => this.startHints(),
         insert: () => this.setMode(MODE.INSERT),
-        esc: () => this.escape(),
+        esc: ctx => this.escapeEffects(ctx?.modeBefore),
+        palette: () => this.openPalette(),
+        palette_cycle: () => this.cyclePalette(),
+        palette_run: () => this.runPalette(),
+        hint_key: ctx => this.sendContent("Aether:HintKey", { key: ctx.decision.key }),
       };
 
       this.buildStatusbar();
+      this.buildPalette();
       this.attach();
-      this.setMode(MODE.NORMAL);
+      this.renderStatus();
+    }
+
+    get mode() {
+      return this.engine.mode;
     }
 
     opt(name) {
@@ -85,11 +117,19 @@
       win.gBrowser.addProgressListener(this.progressListener);
       this.onTabSelect = () => this.updateUrl(win.gBrowser.currentURI?.spec);
       win.gBrowser.tabContainer.addEventListener("TabSelect", this.onTabSelect);
+      this.onTabCount = () => this.renderWidgets(["tabs"]);
+      win.gBrowser.tabContainer.addEventListener("TabOpen", this.onTabCount);
+      win.gBrowser.tabContainer.addEventListener("TabClose", this.onTabCount);
 
-      if (this.opt("statusbar_clock")) {
-        this.clockTimer = win.setInterval(() => this.updateClock(), 30_000);
-        this.updateClock();
+      // One timer for every scheduled widget; none scheduled → zero timers.
+      this.scheduler = createScheduler(this.widgets, Date.now());
+      if (this.scheduler.periodMs !== null) {
+        this.tickTimer = win.setInterval(
+          () => this.renderWidgets(this.scheduler.tick(Date.now())),
+          this.scheduler.periodMs
+        );
       }
+      this.renderWidgets();
 
       win.addEventListener("unload", () => this.destroy(), { once: true });
     }
@@ -101,69 +141,44 @@
       win.document.removeEventListener("focusout", this.onFocusChange, true);
       try { win.gBrowser.removeProgressListener(this.progressListener); } catch {}
       win.gBrowser.tabContainer.removeEventListener("TabSelect", this.onTabSelect);
-      if (this.clockTimer) win.clearInterval(this.clockTimer);
+      win.gBrowser.tabContainer.removeEventListener("TabOpen", this.onTabCount);
+      win.gBrowser.tabContainer.removeEventListener("TabClose", this.onTabCount);
+      win.clearTimeout(this.pendingTimer);
+      if (this.tickTimer) win.clearInterval(this.tickTimer);
     }
 
-    // --- key handling -------------------------------------------------------
+    // --- key handling: descriptor in, decision out, effect applied ----------
 
     handleKeydown(event) {
       const key = event.key;
       if (key === "Control" || key === "Alt" || key === "Shift" || key === "Meta") return;
 
-      const combo = this.comboFor(event);
+      const modeBefore = this.engine.mode;
+      const decision = this.engine.handleKey({
+        key,
+        ctrl: event.ctrlKey,
+        alt: event.altKey,
+        meta: event.metaKey,
+      });
 
-      // Reserved chords are ours in every mode — the spike's core proof.
-      const reserved = this.config.keymap.reserved[combo];
-      if (reserved) {
-        this.consume(event);
-        this.run(reserved);
-        return;
-      }
-
-      if (key === "Escape") {
-        this.consume(event);
-        this.escape();
-        return;
-      }
-
-      // While typing (urlbar, content fields, explicit insert): hands off.
-      if (this.mode === MODE.INSERT) return;
-
-      if (this.mode === MODE.HINT) {
-        if (event.ctrlKey || event.altKey || event.metaKey) return;
-        if (key.length === 1) {
+      switch (decision.kind) {
+        case "action":
           this.consume(event);
-          this.sendContent("Aether:HintKey", { key });
-        }
-        return;
+          this.clearPendingTimer();
+          this.leaveTransientMode(modeBefore, decision.command);
+          this.run(decision.command, { decision, modeBefore });
+          break;
+        case "pending":
+          this.consume(event);
+          this.schedulePendingTimeout();
+          break;
+        case "swallow":
+          this.consume(event);
+          this.clearPendingTimer();
+          break;
+        // passthrough: Firefox/content keeps the event
       }
-
-      // NORMAL mode. Modified chords we don't own pass through (Ctrl+C etc).
-      if (event.ctrlKey || event.altKey || event.metaKey) return;
-      if (key.length !== 1) return; // F-keys, arrows, Tab: let Firefox have them
-
-      const seq = this.pending + key;
-      const keymap = this.config.keymap.normal;
-      this.consume(event); // printable keys never reach content in normal mode
-
-      if (keymap[seq]) {
-        this.clearPending();
-        this.run(keymap[seq]);
-      } else if (Object.keys(keymap).some(k => k.startsWith(seq))) {
-        this.setPending(seq);
-      } else {
-        this.clearPending();
-      }
-    }
-
-    comboFor(event) {
-      let mods = "";
-      if (event.ctrlKey) mods += "C-";
-      if (event.altKey) mods += "A-";
-      if (event.metaKey) mods += "M-";
-      if (!mods) return null;
-      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-      return mods + key;
+      this.renderStatus();
     }
 
     consume(event) {
@@ -171,27 +186,26 @@
       event.stopImmediatePropagation();
     }
 
-    setPending(seq) {
-      this.pending = seq;
+    schedulePendingTimeout() {
       this.win.clearTimeout(this.pendingTimer);
-      this.pendingTimer = this.win.setTimeout(() => this.clearPending(), PENDING_TIMEOUT_MS);
-      this.renderStatus();
+      this.pendingTimer = this.win.setTimeout(() => {
+        this.engine.handleTimeout();
+        this.renderStatus();
+      }, this.opt("pending_timeout_ms"));
     }
 
-    clearPending() {
-      this.pending = "";
+    clearPendingTimer() {
       this.win.clearTimeout(this.pendingTimer);
-      this.renderStatus();
     }
 
-    run(command) {
+    run(command, ctx) {
       const fn = this.commands[command];
       if (!fn) {
         console.warn(`[aether] unknown command: ${command}`);
         return;
       }
       try {
-        fn();
+        fn(ctx);
       } catch (e) {
         console.error(`[aether] command '${command}' failed:`, e);
       }
@@ -200,16 +214,37 @@
     // --- modes --------------------------------------------------------------
 
     setMode(mode) {
-      this.mode = mode;
+      this.engine.setMode(mode);
       this.renderStatus();
     }
 
-    escape() {
-      if (this.mode === MODE.HINT) this.sendContent("Aether:HintsStop", {});
+    // Reserved chords fire actions from any mode. When one fires out of a
+    // mode that owns transient UI (palette strip, hint labels), tear that UI
+    // down *before* the effect runs — otherwise e.g. C-t in palette mode
+    // focuses the urlbar, syncUrlbarFocus flips to INSERT, and the strip is
+    // orphaned with no owner. Commands that manage their own mode's UI
+    // (palette_*, hint_key, esc, re-entry) are exempt.
+    leaveTransientMode(modeBefore, command) {
+      if (
+        modeBefore === MODE.PALETTE &&
+        !["palette", "palette_cycle", "palette_run", "esc"].includes(command)
+      ) {
+        this.closePalette();
+        this.setMode(MODE.NORMAL);
+      } else if (
+        modeBefore === MODE.HINT &&
+        !["hints", "hint_key", "esc"].includes(command)
+      ) {
+        this.sendContent("Aether:HintsStop", {});
+        this.setMode(MODE.NORMAL);
+      }
+    }
+
+    escapeEffects(modeBefore) {
+      if (modeBefore === MODE.HINT) this.sendContent("Aether:HintsStop", {});
+      if (modeBefore === MODE.PALETTE) this.closePalette();
       if (this.win.gURLBar.focused) this.win.gURLBar.blur();
       if (this.contentEditableFocused) this.sendContent("Aether:Blur", {});
-      this.clearPending();
-      this.setMode(MODE.NORMAL);
     }
 
     startHints() {
@@ -242,6 +277,80 @@
       }
     }
 
+    // --- palette ------------------------------------------------------------
+
+    openPalette() {
+      this.setMode(MODE.PALETTE); // idempotent when opened via ':'
+      this.paletteEl.hidden = false;
+      this.paletteInput.value = "";
+      this.updatePaletteCandidates();
+      this.paletteInput.focus();
+    }
+
+    closePalette() {
+      this.paletteEl.hidden = true;
+      this.paletteInput.blur();
+      this.clearMessage();
+    }
+
+    updatePaletteCandidates() {
+      const candidates = complete(
+        this.paletteInput.value,
+        REGISTRY,
+        this.opt("palette_max_items")
+      );
+      this.paletteState = { candidates, index: -1 };
+      this.renderCandidates();
+    }
+
+    cyclePalette() {
+      const next = cycle({
+        input: this.paletteInput.value,
+        candidates: this.paletteState.candidates,
+        index: this.paletteState.index,
+      });
+      this.paletteInput.value = next.input;
+      this.paletteState.index = next.index;
+      this.renderCandidates();
+    }
+
+    runPalette() {
+      this.clearMessage();
+      const r = parse(this.paletteInput.value);
+      if (r.name === undefined) {
+        if (r.unknown === "") {
+          // vim ex-line behavior: Enter on an empty line closes, runs
+          // nothing, says nothing (no dangling "no command: " copy).
+          this.closePalette();
+          this.setMode(MODE.NORMAL);
+          return;
+        }
+        // Neutral copy; the palette stays open.
+        this.showMessage(r.usage ?? unknownMessage(r.unknown));
+        return;
+      }
+      this.closePalette();
+      this.setMode(MODE.NORMAL);
+      this.run(r.name, { args: r.args });
+    }
+
+    selectTab(raw) {
+      const n = parseInt(raw, 10);
+      const tabs = this.win.gBrowser.tabs;
+      if (!Number.isInteger(n) || n < 1 || n > tabs.length) {
+        this.showMessage(`no tab: ${raw}`);
+        return;
+      }
+      this.win.gBrowser.selectedTab = tabs[n - 1];
+    }
+
+    navigate(url) {
+      // URL fixup is Firefox's job, not ours.
+      this.win.gBrowser.selectedBrowser.fixupAndLoadURIString(url, {
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      });
+    }
+
     // --- browser plumbing ---------------------------------------------------
 
     sendContent(name, data) {
@@ -269,20 +378,20 @@
       this.win.gURLBar.select();
     }
 
-    // --- statusbar ----------------------------------------------------------
+    // --- statusbar + palette DOM --------------------------------------------
 
     buildStatusbar() {
       const doc = this.win.document;
       const html = ns => doc.createElementNS("http://www.w3.org/1999/xhtml", ns);
       const bar = html("div");
       bar.id = "aether-statusbar";
-      this.modeEl = html("span");
-      this.modeEl.className = "aether-mode";
-      this.urlEl = html("span");
-      this.urlEl.className = "aether-url";
-      this.clockEl = html("span");
-      this.clockEl.className = "aether-clock";
-      bar.append(this.modeEl, this.urlEl, this.clockEl);
+      // One span per resolved widget, in config order; renders fill them in.
+      this.widgetEls = new Map();
+      for (const w of this.widgets) {
+        const span = html("span");
+        this.widgetEls.set(w.id, span);
+        bar.appendChild(span);
+      }
 
       const browserEl = doc.getElementById("browser");
       if (browserEl?.parentNode) {
@@ -293,25 +402,90 @@
       this.bar = bar;
     }
 
-    renderStatus() {
+    buildPalette() {
+      const doc = this.win.document;
+      const html = ns => doc.createElementNS("http://www.w3.org/1999/xhtml", ns);
+      const box = html("div");
+      box.id = "aether-palette";
+      box.hidden = true;
+
+      this.candidatesEl = html("div");
+      this.candidatesEl.className = "aether-palette-candidates";
+
+      const row = html("div");
+      row.className = "aether-palette-row";
+      const prompt = html("span");
+      prompt.className = "aether-palette-prompt";
+      prompt.textContent = ":";
+      this.paletteInput = html("input");
+      this.paletteInput.className = "aether-palette-input";
+      row.append(prompt, this.paletteInput);
+
+      box.append(this.candidatesEl, row);
+      this.bar.parentNode.insertBefore(box, this.bar);
+      this.paletteEl = box;
+
+      this.paletteInput.addEventListener("input", () => {
+        this.clearMessage();
+        this.updatePaletteCandidates();
+      });
+    }
+
+    renderCandidates() {
+      const { candidates, index } = this.paletteState;
+      this.candidatesEl.textContent = "";
+      const doc = this.win.document;
+      candidates.forEach((name, i) => {
+        const span = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+        span.textContent = name;
+        if (i === index) span.className = "aether-selected";
+        this.candidatesEl.appendChild(span);
+      });
+    }
+
+    // Map renders onto spans. ids omitted → full bar; ids given → only those
+    // (events re-render targeted widgets, the scheduler passes its due list).
+    renderWidgets(ids) {
       if (!this.bar) return;
-      this.bar.dataset.mode = this.mode;
-      this.modeEl.textContent = this.pending
-        ? `${this.mode.toUpperCase()} ${this.pending}`
-        : this.mode.toUpperCase();
+      const ctx = {
+        mode: this.engine.mode,
+        buffer: this.engine.buffer,
+        url: this.url,
+        message: this.message,
+        // TabClose fires before the dying tab leaves gBrowser.tabs (and the
+        // close animation keeps it there longer) — count only live tabs.
+        tabCount: this.win.gBrowser?.tabs?.filter(t => !t.closing).length ?? 0,
+        nowMs: Date.now(),
+        locale: undefined, // system locale
+      };
+      this.bar.dataset.mode = ctx.mode;
+      for (const w of this.widgets) {
+        if (ids && !ids.includes(w.id)) continue;
+        const r = renderWidget(w, ctx);
+        const el = this.widgetEls.get(w.id);
+        el.textContent = r.text;
+        if (r.class) el.className = r.class;
+      }
+    }
+
+    renderStatus() {
+      this.renderWidgets(["mode"]);
+    }
+
+    showMessage(text) {
+      this.message = text;
+      this.renderWidgets(["msg"]);
+    }
+
+    clearMessage() {
+      this.message = "";
+      this.renderWidgets(["msg"]);
     }
 
     updateUrl(spec) {
-      if (this.urlEl && spec) this.urlEl.textContent = spec;
-    }
-
-    updateClock() {
-      if (!this.clockEl) return;
-      const now = new Date();
-      this.clockEl.textContent = now.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      if (!spec) return;
+      this.url = spec;
+      this.renderWidgets(["url", "tabs"]);
     }
   }
 

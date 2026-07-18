@@ -65,6 +65,10 @@
   background-color: #d79921;
   color: #1d2021;
 }
+#aether-statusbar[data-mode="palette"] .aether-mode {
+  background-color: #b16286;
+  color: #1d2021;
+}
 #aether-statusbar .aether-url {
   flex: 1;
   overflow: hidden;
@@ -72,6 +76,60 @@
   white-space: nowrap;
   opacity: 0.85;
 }
+#aether-statusbar .aether-message {
+  opacity: 0.85;
+}
 #aether-statusbar .aether-clock {
   opacity: 0.7;
+}
+#aether-statusbar .aether-tabs {
+  opacity: 0.7;
+}
+#aether-statusbar .aether-tabs::before {
+  content: "⊞ "; /* the widget renders a bare count; glyphs are CSS's job */
+}
+#aether-statusbar .aether-date {
+  opacity: 0.7;
+}
+
+/* --- Aether command palette (injected by aether.uc.js, sits above the bar) --- */
+#aether-palette {
+  font: 12px monospace;
+  background-color: var(--toolbar-bgcolor, #1d2021);
+  color: var(--toolbar-color, #ebdbb2);
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  user-select: none;
+}
+#aether-palette .aether-palette-candidates {
+  display: flex;
+  gap: 1em;
+  padding: 2px 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+#aether-palette .aether-palette-candidates:empty {
+  display: none;
+}
+#aether-palette .aether-palette-candidates .aether-selected {
+  background-color: #98971a;
+  color: #1d2021;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+#aether-palette .aether-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+}
+#aether-palette .aether-palette-prompt {
+  font-weight: bold;
+}
+#aether-palette .aether-palette-input {
+  flex: 1;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
 }

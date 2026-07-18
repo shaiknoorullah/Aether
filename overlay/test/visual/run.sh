@@ -57,6 +57,30 @@ export MOZ_DISABLE_CONTENT_SANDBOX=1
 BROWSER_PID=$!
 sleep "$STARTUP_WAIT"
 
+# There is no window manager on the Xvfb display, so X input focus stays on
+# PointerRoot and keystrokes sent before the browser window is mapped land
+# nowhere (this made first-scenario navs silently fail). Wait for the window,
+# then hand it explicit input focus and park the pointer inside it.
+# Fresh profiles also start with the urlbar focused (overlay in INSERT mode),
+# so a scenario's first modal keystroke would be typed into the urlbar instead
+# of running a command ('o' + url became "ofile://..."). One Escape lands the
+# overlay in NORMAL and makes the start state deterministic.
+focus_browser_window() {
+  BROWSER_WIN=""
+  for _ in $(seq 1 60); do
+    BROWSER_WIN="$(xdotool search --onlyvisible --name "." 2>/dev/null | head -1 || true)"
+    [[ -n "$BROWSER_WIN" ]] && break
+    sleep 0.5
+  done
+  [[ -n "$BROWSER_WIN" ]] || { echo "browser window never mapped — see $SHOTS/browser.log" >&2; exit 2; }
+  xdotool windowfocus --sync "$BROWSER_WIN" 2>/dev/null || true
+  xdotool mousemove 800 450 2>/dev/null || true
+  sleep 2
+  xdotool key --clearmodifiers Escape
+  sleep 1
+}
+focus_browser_window
+
 # --- 4. scenario DSL ----------------------------------------------------------
 shot() { xwd -root -silent | convert xwd:- "$SHOTS/$1.png"; echo "[shot] $1"; }
 key()  { xdotool key --clearmodifiers "$@"; sleep 0.6; }
@@ -64,6 +88,40 @@ keys() { for k in "$@"; do xdotool key --clearmodifiers "$k"; sleep 0.25; done; 
 type_text() { xdotool type --delay 40 "$1"; sleep 0.4; }
 nav()  { keys o; type_text "$1"; key Return; sleep "${2:-5}"; }
 browser_alive() { kill -0 "$BROWSER_PID" 2>/dev/null; }
+# relaunch_browser [start_url] — quit the running browser and start it again on
+# the SAME profile (config reload / persistence scenarios: the overlay reads
+# ~/.config/aether/aether.toml only at startup). Appends to browser.log and
+# redoes the focus/Escape dance so the DSL keeps working afterwards.
+relaunch_browser() {
+  kill "$BROWSER_PID" 2>/dev/null || true
+  wait "$BROWSER_PID" 2>/dev/null || true
+  sleep 1
+  "$BIN" --no-remote --new-instance -profile "$PROFILE" "${1:-about:blank}" \
+    >> "$SHOTS/browser.log" 2>&1 &
+  BROWSER_PID=$!
+  sleep "$STARTUP_WAIT"
+  focus_browser_window
+  browser_alive || { echo "browser died on relaunch — see $SHOTS/browser.log" >&2; exit 2; }
+}
+# wait_title <substring> [timeout_s=15] — poll X window titles until one
+# contains the substring. Gives scenarios a real "did that nav actually land?"
+# assertion; a timeout fails the run (set -e) instead of letting later shots
+# lie about state. Note: matches via getwindowname (_NET_WM_NAME) — xdotool
+# search --name reads the stale WM_NAME, which Firefox does not keep updated.
+wait_title() {
+  local want="$1" timeout="${2:-15}" waited=0 w
+  while (( waited < timeout * 2 )); do
+    for w in $(xdotool search --name "." 2>/dev/null); do
+      case "$(xdotool getwindowname "$w" 2>/dev/null)" in
+        *"$want"*) return 0 ;;
+      esac
+    done
+    sleep 0.5
+    (( waited++ )) || true
+  done
+  echo "[wait_title] no window titled *${want}* after ${timeout}s" >&2
+  return 1
+}
 
 browser_alive || { echo "browser died on startup — see $SHOTS/browser.log" >&2; exit 2; }
 

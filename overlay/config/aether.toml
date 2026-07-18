@@ -5,10 +5,19 @@
 [options]
 scroll_step = 120        # px per j/k
 hint_chars = "asdfghjkl" # home row labels
-statusbar_clock = true
+statusbar_clock = true   # legacy: false drops the clock widget from the bar
+pending_timeout_ms = 800 # multi-key sequence window
+palette_max_items = 8    # completions rendered at once
+
+# Statusbar slots, rendered left to right in this order. Builtins: mode, url,
+# msg, tabs, clock, date. Unknown ids are skipped silently ("workspace" is
+# reserved and lights up when workspaces land). Refresh cadence is per-builtin.
+[statusbar]
+widgets = ["mode", "url", "msg", "clock"]
 
 # Commands: scroll_down scroll_up half_down half_up top bottom back forward
-# open open_tab tab_new tab_close tab_next tab_prev reload hints insert esc
+# open open_tab tab tab_new tab_close tab_next tab_prev reload hints insert
+# esc palette
 [keymap.normal]
 "j" = "scroll_down"
 "k" = "scroll_up"
@@ -27,6 +36,7 @@ statusbar_clock = true
 "r" = "reload"
 "f" = "hints"
 "i" = "insert"
+":" = "palette"
 
 # Reserved browser shortcuts Aether takes over — the spike's core proof.
 [keymap.reserved]

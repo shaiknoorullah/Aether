@@ -8,6 +8,11 @@ const DEFAULTS = {
     scroll_step: 120,
     hint_chars: "asdfghjkl",
     statusbar_clock: true,
+    pending_timeout_ms: 800,
+    palette_max_items: 8,
+  },
+  statusbar: {
+    widgets: ["mode", "url", "msg", "clock"],
   },
   keymap: {
     normal: {
@@ -28,6 +33,7 @@ const DEFAULTS = {
       r: "reload",
       f: "hints",
       i: "insert",
+      ":": "palette",
     },
     reserved: {
       "C-w": "tab_close",
@@ -89,7 +95,7 @@ function isInsideString(line, idx) {
   return inString;
 }
 
-function deepMerge(base, extra) {
+export function deepMerge(base, extra) {
   const out = { ...base };
   for (const [k, v] of Object.entries(extra)) {
     out[k] =
