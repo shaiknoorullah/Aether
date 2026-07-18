@@ -163,3 +163,22 @@ test("deepMerge: does not mutate DEFAULTS", () => {
   });
   assert.equal(JSON.stringify(AetherConfig.DEFAULTS), before);
 });
+
+// security: prototype pollution via dotfile section/key names must be inert
+import { test as ptest } from "node:test";
+import passert from "node:assert/strict";
+ptest("parseToml never grafts onto Object.prototype", () => {
+  const evil = [
+    "[__proto__]", 'polluted = "yes"',
+    "[a.__proto__.b]", 'x = 1',
+    "[constructor.prototype]", 'y = 2',
+    "[ok]", '"__proto__" = "no"', 'safe = 1',
+  ].join("\n");
+  const out = parseToml(evil);
+  passert.equal({}.polluted, undefined);
+  passert.equal(Object.prototype.polluted, undefined);
+  passert.equal({}.x, undefined);
+  passert.equal({}.y, undefined);
+  passert.equal(out.ok.safe, 1);
+  passert.equal(Object.hasOwn(out.ok, "__proto__"), false);
+});

@@ -28,15 +28,30 @@ function isEditable(el) {
 export class AetherContentChild extends JSWindowActorChild {
   hints = null; // { container, items: [{label, el, badge}], typed }
 
+  // Focus events drive auto-INSERT in chrome, which relaxes the "normal-mode
+  // keys never reach content" guarantee — so a cross-origin subframe (ad or
+  // embed) must not be able to trigger it. Same-origin subframes (site's own
+  // comment boxes etc.) may.
+  trustedFrame() {
+    const bc = this.browsingContext;
+    if (bc === bc.top) return true;
+    try {
+      const topPrincipal = bc.top.currentWindowGlobal?.documentPrincipal;
+      return !!topPrincipal && this.document.nodePrincipal.equals(topPrincipal);
+    } catch {
+      return false;
+    }
+  }
+
   handleEvent(event) {
     switch (event.type) {
       case "focusin":
-        if (isEditable(event.target)) {
+        if (isEditable(event.target) && this.trustedFrame()) {
           this.sendAsyncMessage("Aether:Focus", { editable: true });
         }
         break;
       case "focusout":
-        if (isEditable(event.target)) {
+        if (isEditable(event.target) && this.trustedFrame()) {
           this.sendAsyncMessage("Aether:Focus", { editable: false });
         }
         break;

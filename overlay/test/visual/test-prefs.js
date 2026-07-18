@@ -13,3 +13,8 @@ user_pref("dom.security.https_only_mode", false); // local test pages are http/f
 // mid-run (observed as AbnormalShutdown + black frames in earlier runs).
 user_pref("gfx.webrender.software", true);
 user_pref("layers.acceleration.disabled", true);
+// f6: notification-suppression evidence is read from the profile's prefs.js
+// (the glue flushes the flip/restore immediately for crash safety, so the
+// file is the durable record). about:config?filter= does not populate the
+// search box in LibreWolf 146, and chrome console output never reaches
+// stdout in this release build — so no extra pref is needed here.

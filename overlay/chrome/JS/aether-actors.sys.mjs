@@ -26,7 +26,7 @@ export function ensureActors() {
     if (e.name === "NotSupportedError") {
       registered = true;
     } else {
-      console.error("[aether] actor registration failed:", e);
+      console.error("[aether] could not register actors:", e);
     }
   }
 }

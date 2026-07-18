@@ -18,15 +18,18 @@ key f
 shot 04-hints-visible
 key Escape
 
+# insert mode via content field (BEST-EFFORT: label assignment can vary run to
+# run; authoritative INSERT evidence is f1 shot 19). Hint BEFORE scrolling (scrolled
+# pages may have zero visible targets, which ends hint mode instantly). With
+# the playground's five targets the input's home-row label is 'g'.
+key f
+keys g
+shot 06-after-hint-activate
+key Escape
+
 # scroll (j x5) — content should have moved
 keys j j j j j
 shot 05-scrolled
-
-# insert mode via content field: hint to the input (labels are home-row; the
-# first candidate is 'a' when few targets — best-effort for the spike)
-key f
-keys a
-shot 06-after-hint-activate
 
 # reserved override proof: Ctrl+T must open OUR blank tab + urlbar (not crash),
 # Ctrl+W must close it and land back on the playground

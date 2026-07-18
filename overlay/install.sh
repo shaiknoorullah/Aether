@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Aether overlay installer — Phase 0 spike.
-# Provisions the 'aether' Firefox profile, vendors fx-autoconfig, wires the overlay in.
+# Aether overlay installer.
+# Provisions the 'aether' Firefox profile and wires in the self-owned
+# autoconfig loader (overlay/loader/ — no external dependency).
 set -euo pipefail
 
 OVERLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

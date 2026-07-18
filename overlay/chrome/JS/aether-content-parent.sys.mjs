@@ -7,7 +7,7 @@ export class AetherContentParent extends JSWindowActorParent {
       const win = this.browsingContext.topChromeWindow;
       win?.Aether?.onContentMessage(msg.name, msg.data, this.browsingContext);
     } catch (e) {
-      console.error("[aether] parent actor relay failed:", e);
+      console.error("[aether] parent actor could not relay:", e);
     }
   }
 }

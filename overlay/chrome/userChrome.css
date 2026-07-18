@@ -29,9 +29,71 @@
   display: none !important;
 }
 
+/* --- f4: native vertical tabs — hidden at rest, summoned per window --------
+   The tabs_toggle command flips [aether-tabs] on the chrome root; never
+   persisted — zero-chrome is the resting state. We build no tab DOM: this is
+   Firefox's own sidebar strip (sidebar.revamp + sidebar.verticalTabs),
+   restyled to the same slot language as the statusbar. */
+#sidebar-main {
+  visibility: collapse !important;
+  background-color: var(--aether-bg, #1d2021) !important;
+  color: var(--aether-fg, #ebdbb2) !important;
+}
+:root[aether-tabs] #sidebar-main {
+  visibility: visible !important;
+  width: var(--aether-tabs-width, 220px) !important;
+  min-width: var(--aether-tabs-width, 220px) !important;
+  max-width: var(--aether-tabs-width, 220px) !important;
+}
+
+/* Tab rows: bar text on bar bg; the selected tab gets the accent slot
+   (accent bg, bg text — same language as the statusbar badge). */
+#sidebar-main .tabbrowser-tab {
+  color: var(--aether-fg, #ebdbb2) !important;
+}
+#sidebar-main .tabbrowser-tab .tab-background {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+#sidebar-main .tabbrowser-tab[selected] {
+  color: var(--aether-bg, #1d2021) !important;
+}
+#sidebar-main .tabbrowser-tab[selected] .tab-background {
+  background-color: var(--aether-accent, #458588) !important;
+}
+
+/* The revamp's launcher/tool noise stays hidden — spike rules extend here.
+   These are the light-DOM bits inside the slotted tab strip (LibreWolf 146):
+   the pinned-tabs promo card, and the New Tab row — in vertical non-overflow
+   mode that row is #tabs-newtab-button inside the arrowscrollbox periphery
+   (#vertical-tabs-newtab-button only appears on overflow, hidden too). The
+   launcher's gear/tool buttons and their splitter live inside <sidebar-main>'s
+   shadow root, which document CSS can't reach — aether.uc.js adopts a hiding
+   sheet into that shadow root instead. */
+#sidebar-main #drag-to-pin-promo-card,
+#sidebar-main #tabbrowser-arrowscrollbox-periphery,
+#sidebar-main #vertical-tabs-newtab-button,
+#sidebar-main #vertical-pinned-tabs-splitter {
+  display: none !important;
+}
+
 /* Quiet the remaining edges. */
 #navigator-toolbox {
   border: none !important;
+}
+
+/* --- Aether theming (--aether-* vars set by aether.uc.js / :theme_reload) ---
+   Fallbacks are the pre-theming gruvbox hexes, so chrome without the style
+   element renders pixel-identical to before. Slot map: normal→color2,
+   insert→color4, hint→color3, palette→color5, badge text→bg, bar bg→bg,
+   bar text→fg, selected candidate→accent. */
+
+/* Content void: the chrome container behind/around pages. Chrome-side only —
+   page content is untouched. */
+#browser,
+#tabbrowser-tabpanels {
+  background-color: var(--aether-bg, #1d2021) !important;
 }
 
 /* --- Aether statusbar (injected by aether.uc.js) --- */
@@ -42,8 +104,8 @@
   height: 24px;
   padding: 0 8px;
   font: 12px monospace;
-  background-color: var(--toolbar-bgcolor, #1d2021);
-  color: var(--toolbar-color, #ebdbb2);
+  background-color: var(--aether-bg, var(--toolbar-bgcolor, #1d2021));
+  color: var(--aether-fg, var(--toolbar-color, #ebdbb2));
   border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   user-select: none;
   -moz-window-dragging: no-drag;
@@ -54,20 +116,31 @@
   border-radius: 2px;
 }
 #aether-statusbar[data-mode="normal"] .aether-mode {
-  background-color: #98971a;
-  color: #1d2021;
+  background-color: var(--aether-color2, #98971a);
+  color: var(--aether-bg, #1d2021);
 }
 #aether-statusbar[data-mode="insert"] .aether-mode {
-  background-color: #458588;
-  color: #1d2021;
+  background-color: var(--aether-color4, #458588);
+  color: var(--aether-bg, #1d2021);
 }
 #aether-statusbar[data-mode="hint"] .aether-mode {
-  background-color: #d79921;
-  color: #1d2021;
+  background-color: var(--aether-color3, #d79921);
+  color: var(--aether-bg, #1d2021);
 }
 #aether-statusbar[data-mode="palette"] .aether-mode {
-  background-color: #b16286;
-  color: #1d2021;
+  background-color: var(--aether-color5, #b16286);
+  color: var(--aether-bg, #1d2021);
+}
+#aether-statusbar .aether-workspace {
+  color: var(--aether-color6, #689d6a);
+  font-weight: bold;
+}
+#aether-statusbar .aether-workspace::before {
+  content: "◫ "; /* the widget renders a bare name; glyphs are CSS's job */
+}
+#aether-statusbar .aether-focus {
+  /* Calm at any duration — no warning styling, no color change, ever. */
+  color: var(--aether-color6, #689d6a);
 }
 #aether-statusbar .aether-url {
   flex: 1;
@@ -91,12 +164,39 @@
 #aether-statusbar .aether-date {
   opacity: 0.7;
 }
+#aether-statusbar .aether-ai {
+  opacity: 0.7;
+}
+#aether-statusbar .aether-ai-on {
+  /* the switch is on: visible at a glance, same accent language as the bar */
+  opacity: 1;
+  color: var(--aether-color2, #98971a);
+  font-weight: bold;
+}
+
+/* --- f7: local AI sidebar (injected by aether.uc.js) -----------------------
+   One width, one side (right), CSS constants — no resize/dock options this
+   pass. The panel content is chrome://userchrome/content/ai-sidebar.html. */
+#aether-ai-sidebar {
+  /* #browser positions its children (sidebar, splitter, tabbox) with CSS
+     order; without one the panel would land on the left edge. */
+  order: 10;
+  width: var(--aether-ai-width, 320px);
+  min-width: var(--aether-ai-width, 320px);
+  max-width: var(--aether-ai-width, 320px);
+  background-color: var(--aether-bg, #1d2021);
+  border-inline-start: 1px solid
+    color-mix(in srgb, var(--aether-fg, #ebdbb2) 20%, transparent);
+}
+#aether-ai-sidebar browser {
+  flex: 1;
+}
 
 /* --- Aether command palette (injected by aether.uc.js, sits above the bar) --- */
 #aether-palette {
   font: 12px monospace;
-  background-color: var(--toolbar-bgcolor, #1d2021);
-  color: var(--toolbar-color, #ebdbb2);
+  background-color: var(--aether-bg, var(--toolbar-bgcolor, #1d2021));
+  color: var(--aether-fg, var(--toolbar-color, #ebdbb2));
   border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   user-select: none;
 }
@@ -111,8 +211,8 @@
   display: none;
 }
 #aether-palette .aether-palette-candidates .aether-selected {
-  background-color: #98971a;
-  color: #1d2021;
+  background-color: var(--aether-accent, #98971a);
+  color: var(--aether-bg, #1d2021);
   padding: 0 4px;
   border-radius: 2px;
 }

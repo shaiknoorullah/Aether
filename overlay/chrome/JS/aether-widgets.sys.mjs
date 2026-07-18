@@ -7,6 +7,9 @@
 // ctx: {mode, buffer, url, message, tabCount, nowMs, locale} (locale undefined
 // ⇒ system locale).
 
+import { formatElapsed } from "./aether-focus.sys.mjs";
+import { focusWidgetText } from "./aether-strings.sys.mjs";
+
 function formatTime(ctx, options) {
   return new Intl.DateTimeFormat(ctx.locale, options).format(new Date(ctx.nowMs));
 }
@@ -18,6 +21,22 @@ export const BUILTINS = {
     render: ctx => ({
       text: ctx.buffer ? `${ctx.mode.toUpperCase()} ${ctx.buffer}` : ctx.mode.toUpperCase(),
       class: "aether-mode",
+    }),
+  },
+  workspace: {
+    id: "workspace",
+    refresh_s: 0, // event-driven: re-rendered on switch/rename, never on a timer
+    render: ctx => ({ text: ctx.workspace ?? "", class: "aether-workspace" }),
+  },
+  focus: {
+    id: "focus",
+    refresh_s: 30, // rides the clock cadence — an ambient anchor, not a timer
+    render: ctx => ({
+      // No session → an empty slot, never a placeholder.
+      text: ctx.focus
+        ? focusWidgetText(ctx.focus.task, formatElapsed(ctx.focus.startedAt, ctx.nowMs))
+        : "",
+      class: "aether-focus",
     }),
   },
   url: {
@@ -34,6 +53,19 @@ export const BUILTINS = {
     id: "tabs",
     refresh_s: 0,
     render: ctx => ({ text: String(ctx.tabCount), class: "aether-tabs" }),
+  },
+  ai: {
+    id: "ai",
+    refresh_s: 0, // event-driven: re-rendered on :ai_on/:ai_off, never on a timer
+    render: ctx => {
+      // The kill switch's state is always visible — and an absent ctx.ai can
+      // only ever look off, never on.
+      const on = ctx.ai?.enabled === true;
+      return {
+        text: on ? "ai on" : "ai off",
+        class: `aether-ai ${on ? "aether-ai-on" : "aether-ai-off"}`,
+      };
+    },
   },
   clock: {
     id: "clock",
@@ -53,8 +85,8 @@ export const BUILTINS = {
   },
 };
 
-// Ordered widget defs from config: order verbatim, unknown ids skipped (so
-// "workspace" can sit in a dotfile before the feature exists), duplicates
+// Ordered widget defs from config: order verbatim, unknown ids skipped (a
+// dotfile may name widgets that don't exist yet), duplicates
 // resolve to their first position, and the legacy statusbar_clock = false
 // option removes clock (back-compat with the spike's dotfiles).
 export function resolveWidgets(config) {

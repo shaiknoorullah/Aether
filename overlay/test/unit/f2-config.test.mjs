@@ -14,13 +14,17 @@ import { parseToml, AetherConfig } from "../../chrome/JS/aether-config.sys.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_TOML = join(HERE, "..", "..", "config", "aether.toml");
 
-test("config: default [statusbar] widgets is exactly today's bar (mode, url, msg, clock)", () => {
-  assert.deepEqual(AetherConfig.DEFAULTS.statusbar?.widgets, [
-    "mode",
-    "url",
-    "msg",
-    "clock",
-  ]);
+// Note (f5): the literal default list moved to f5-config.test.mjs when the
+// reserved 'workspace' slot went live; the f2 guarantee that survives is that
+// the original bar ids stay present, in their relative order.
+test("config: default [statusbar] widgets keeps mode, url, msg, clock in order", () => {
+  const widgets = AetherConfig.DEFAULTS.statusbar?.widgets ?? [];
+  let from = 0;
+  for (const want of ["mode", "url", "msg", "clock"]) {
+    const at = widgets.indexOf(want, from);
+    assert.ok(at !== -1, `default statusbar widgets lost '${want}' (or its relative order)`);
+    from = at + 1;
+  }
 });
 
 test("config: statusbar_clock stays available and defaults to true (legacy option kept)", () => {

@@ -61,9 +61,12 @@ function ctx(overrides = {}) {
 
 // 1 ---------------------------------------------------------------- resolution
 
-test("resolve: defaults yield mode, url, msg, clock in that order (pixel-equivalence guard)", () => {
+// Note (f5): the exact default id list is pinned in f5-config.test.mjs since
+// the reserved 'workspace' slot went live; here the guard is that every
+// default id resolves, order verbatim — no default may be silently skipped.
+test("resolve: every default widget id resolves, order verbatim (pixel-equivalence guard)", () => {
   const widgets = resolveWidgets(AetherConfig.DEFAULTS);
-  assert.deepEqual(ids(widgets), ["mode", "url", "msg", "clock"]);
+  assert.deepEqual(ids(widgets), AetherConfig.DEFAULTS.statusbar.widgets);
   for (const w of widgets) {
     assert.equal(typeof w.render, "function", `widget '${w.id}' has no render`);
   }
@@ -81,10 +84,13 @@ widgets = ["clock", "mode", "tabs"]
 
 // 3
 
-test("resolve: unknown id ('workspace') is skipped silently; the rest survives", () => {
+// Note (f5): 'workspace' was the reserved example here until it became a real
+// builtin; the unknown-id guard now uses a never-real id. The workspace slot's
+// resolution is covered in f5-widgets.test.mjs.
+test("resolve: unknown id ('zzz_bogus') is skipped silently; the rest survives", () => {
   const cfg = configWith(`
 [statusbar]
-widgets = ["mode", "workspace", "url", "clock"]
+widgets = ["mode", "zzz_bogus", "url", "clock"]
 `);
   let widgets;
   assert.doesNotThrow(() => {
@@ -110,7 +116,10 @@ test("resolve: statusbar_clock = false drops clock, rest unchanged (back-compat)
 [options]
 statusbar_clock = false
 `);
-  assert.deepEqual(ids(resolveWidgets(cfg)), ["mode", "url", "msg"]);
+  assert.deepEqual(
+    ids(resolveWidgets(cfg)),
+    AetherConfig.DEFAULTS.statusbar.widgets.filter(id => id !== "clock"),
+  );
 });
 
 // 6 ------------------------------------------------------------------- renders

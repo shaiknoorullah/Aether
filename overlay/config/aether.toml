@@ -9,21 +9,83 @@ statusbar_clock = true   # legacy: false drops the clock widget from the bar
 pending_timeout_ms = 800 # multi-key sequence window
 palette_max_items = 8    # completions rendered at once
 
-# Statusbar slots, rendered left to right in this order. Builtins: mode, url,
-# msg, tabs, clock, date. Unknown ids are skipped silently ("workspace" is
-# reserved and lights up when workspaces land). Refresh cadence is per-builtin.
+# Statusbar slots, rendered left to right in this order. Builtins: mode,
+# workspace, focus, url, msg, tabs, ai, clock, date. Unknown ids are skipped
+# silently. Refresh cadence is per-builtin.
 [statusbar]
-widgets = ["mode", "url", "msg", "clock"]
+widgets = ["mode", "workspace", "focus", "url", "msg", "ai", "clock", "date"]
+
+# Local AI sidebar: toggle with a / :ai, chat streams from the one
+# OpenAI-compatible gateway everything converged on (Ollama/LM Studio/
+# llama-server all speak /v1/chat/completions). enabled is the kill switch —
+# OFF until you enable it; :ai_on/:ai_off persist over this value. base_url
+# may only point at a loopback host (127.0.0.1, localhost, [::1]) — anything
+# else makes AI unavailable, never a remote fetch.
+[ai]
+enabled = false
+base_url = "http://127.0.0.1:11434/v1"
+model = "llama3.2"
+
+# Focus sessions: start with :focus <task>, end with :done or a workspace
+# switch. Never a timer — the statusbar shows the task plus calm elapsed time.
+[focus]
+quiet_notifications = true # suppress web notifications during a session; restored on end
+
+# Tab graveyard: every real close is archived — searchable with :graveyard,
+# Enter resurrects. The ring cap is the only cleanup policy; the archive lives
+# in <profile>/aether-graveyard.json.
+[graveyard]
+cap = 500 # ring size; oldest entries fall off past this
+
+# Workspaces: named, container-isolated, persistent. Switch-or-create with
+# :ws <name>, cycle with gw / :ws_next, rename with :ws_rename <name>. State
+# lives in <profile>/aether-workspaces.json.
+[workspaces]
+default = "main" # the workspace a fresh profile starts in (no container)
+
+# Theming: pywal/base16 ingestion. wal colors.json (if readable and valid)
+# wins under "auto", then [theme.colors], then the builtin gruvbox. A broken
+# palette file never bricks the chrome — it just falls back. Reload with
+# :theme_reload (no file watching).
+[theme]
+source = "auto"                       # auto | wal | toml | builtin
+wal_json = "~/.cache/wal/colors.json" # ~ expands to $HOME
+
+# Base16-style fallback palette — strict #rrggbb, all-or-nothing.
+# accent is optional and defaults to color4.
+[theme.colors]
+bg = "#1d2021"
+fg = "#ebdbb2"
+accent = "#458588"
+color0 = "#282828"
+color1 = "#cc241d"
+color2 = "#98971a"
+color3 = "#d79921"
+color4 = "#458588"
+color5 = "#b16286"
+color6 = "#689d6a"
+color7 = "#a89984"
+color8 = "#928374"
+color9 = "#fb4934"
+color10 = "#b8bb26"
+color11 = "#fabd2f"
+color12 = "#83a598"
+color13 = "#d3869b"
+color14 = "#8ec07c"
+color15 = "#ebdbb2"
 
 # Commands: scroll_down scroll_up half_down half_up top bottom back forward
-# open open_tab tab tab_new tab_close tab_next tab_prev reload hints insert
-# esc palette
+# open open_tab tab tab_new tab_close tab_next tab_prev tabs_toggle reload
+# hints insert esc palette theme_reload graveyard ws ws_next ws_rename
+# focus done ai ai_on ai_off
 [keymap.normal]
+"a" = "ai"
 "j" = "scroll_down"
 "k" = "scroll_up"
 "d" = "half_down"
 "u" = "half_up"
 "gg" = "top"
+"gw" = "ws_next"
 "G" = "bottom"
 "H" = "back"
 "L" = "forward"
@@ -33,6 +95,7 @@ widgets = ["mode", "url", "msg", "clock"]
 "x" = "tab_close"
 "J" = "tab_next"
 "K" = "tab_prev"
+"T" = "tabs_toggle"
 "r" = "reload"
 "f" = "hints"
 "i" = "insert"

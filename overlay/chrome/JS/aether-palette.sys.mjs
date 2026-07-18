@@ -2,14 +2,20 @@
 // Command *implementations* live in aether.uc.js; this module only decides
 // what an input line means and what Tab should do. No DOM, no Services.
 
-// Every runnable command: the spike set plus the ex-only ":tab <n>" and
-// "palette". Metadata: `min` required args (default 0), `usage` shown by the
+// Every runnable command: the spike set plus the ex-only ":tab <n>",
+// "palette", and "theme_reload". Metadata: `min` required args (default 0), `usage` shown by the
 // glue when a required arg is missing — neutral wording only.
 export const REGISTRY = {
+  ai: {}, // toggle the AI sidebar
+  ai_off: {}, // kill switch off — hard: aborts any in-flight request
+  ai_on: {}, // kill switch on, persisted over the TOML value
   back: {},
   bottom: {},
+  done: {}, // ends the focus session; no session → neutral copy, nothing else
   esc: {},
+  focus: { min: 1, usage: "focus <task>" }, // start a focus session (multi-word task)
   forward: {},
+  graveyard: { usage: "graveyard [query]" }, // query optional — no query lists the newest
   half_down: {},
   half_up: {},
   hints: {},
@@ -25,7 +31,12 @@ export const REGISTRY = {
   tab_new: {},
   tab_next: {},
   tab_prev: {},
+  tabs_toggle: {},
+  theme_reload: {},
   top: {},
+  ws: { min: 1, usage: "ws <name>" }, // switch-or-create a workspace
+  ws_next: {},
+  ws_rename: { min: 1, usage: "ws_rename <name>" },
 };
 
 // The exact statusbar copy for an unknown command — neutral, non-shaming.

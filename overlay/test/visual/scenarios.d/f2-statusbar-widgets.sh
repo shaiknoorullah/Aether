@@ -1,5 +1,7 @@
 # f2 scenario: statusbar widget framework. Spec §5 visual states:
 #   1. default widget set — pixel-equivalent to the f1 bar (mode badge, url, clock)
+# NOTE: tab counts in shots include the workspace-restore tab (f5) — expected
+# counts are one higher than this scenario originally documented.
 #   2. custom [statusbar] widgets TOML — reordered bar with a correct tab count
 # Runs inside run.sh via source — shot/key/keys/type_text/nav/wait_title/
 # relaunch_browser are available. Shots numbered 30+ to sort after f1's 10-22.

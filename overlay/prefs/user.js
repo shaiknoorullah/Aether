@@ -46,7 +46,18 @@ user_pref("identity.fxaccounts.enabled", false);
 user_pref("browser.aboutwelcome.enabled", false);
 
 // --- behavior ---
-user_pref("browser.startup.page", 3); // restore session — tab death is not a feature
+// f5 owns restore outright: startup stays blank and tabs reopen from
+// <profile>/aether-workspaces.json — Firefox sessionstore must never race it
+// (its tabs would be unadopted and visible in every workspace).
+user_pref("browser.startup.page", 0);
+// f5/f7 backstop: workspaces hide other workspaces' tabs, and gBrowser's
+// native last-tab close counts only visible ones — a native close path (any
+// chord the overlay ever fails to intercept) must never take the window and
+// every hidden workspace down with it. closeCurrentTab passes the same flag
+// per-call; this pref covers the paths that bypass it.
+user_pref("browser.tabs.closeWindowWithLastTab", false);
+user_pref("sidebar.revamp", true); // f4: native vertical tabs, restyled by userChrome.css
+user_pref("sidebar.verticalTabs", true);
 user_pref("dom.security.https_only_mode", true);
 user_pref("browser.contentblocking.category", "strict");
 user_pref("browser.download.useDownloadDir", false);
