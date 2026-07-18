@@ -1,0 +1,77 @@
+/* Aether zero-chrome. The content is the browser; chrome appears only when summoned. */
+
+/* Tabs and bookmarks: gone. Tab state lives in the statusbar + palette later. */
+#TabsToolbar,
+#PersonalToolbar {
+  visibility: collapse !important;
+}
+
+/* Nav bar: hidden but focusable — slides in while the urlbar has focus
+   (visibility:collapse would make it unfocusable, so use the margin trick). */
+#navigator-toolbox {
+  --aether-navbar-height: 40px;
+}
+#nav-bar {
+  margin-top: calc(-1 * var(--aether-navbar-height)) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: margin-top 80ms ease-out, opacity 80ms ease-out !important;
+}
+#nav-bar:focus-within {
+  margin-top: 0 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* No sidebar chrome noise (Firefox 136+ sidebar/vertical-tabs headers). */
+#sidebar-header,
+#sidebar-launcher-splitter {
+  display: none !important;
+}
+
+/* Quiet the remaining edges. */
+#navigator-toolbox {
+  border: none !important;
+}
+
+/* --- Aether statusbar (injected by aether.uc.js) --- */
+#aether-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  height: 24px;
+  padding: 0 8px;
+  font: 12px monospace;
+  background-color: var(--toolbar-bgcolor, #1d2021);
+  color: var(--toolbar-color, #ebdbb2);
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  user-select: none;
+  -moz-window-dragging: no-drag;
+}
+#aether-statusbar .aether-mode {
+  font-weight: bold;
+  padding: 1px 8px;
+  border-radius: 2px;
+}
+#aether-statusbar[data-mode="normal"] .aether-mode {
+  background-color: #98971a;
+  color: #1d2021;
+}
+#aether-statusbar[data-mode="insert"] .aether-mode {
+  background-color: #458588;
+  color: #1d2021;
+}
+#aether-statusbar[data-mode="hint"] .aether-mode {
+  background-color: #d79921;
+  color: #1d2021;
+}
+#aether-statusbar .aether-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+#aether-statusbar .aether-clock {
+  opacity: 0.7;
+}

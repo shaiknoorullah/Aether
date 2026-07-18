@@ -1,0 +1,36 @@
+# Aether config — lives at ~/.config/aether/aether.toml, git this with your dotfiles.
+# Parsed by a deliberately small TOML subset parser: [sections], key = value,
+# strings, integers, booleans, arrays of strings. Comments with #.
+
+[options]
+scroll_step = 120        # px per j/k
+hint_chars = "asdfghjkl" # home row labels
+statusbar_clock = true
+
+# Commands: scroll_down scroll_up half_down half_up top bottom back forward
+# open open_tab tab_new tab_close tab_next tab_prev reload hints insert esc
+[keymap.normal]
+"j" = "scroll_down"
+"k" = "scroll_up"
+"d" = "half_down"
+"u" = "half_up"
+"gg" = "top"
+"G" = "bottom"
+"H" = "back"
+"L" = "forward"
+"o" = "open"
+"O" = "open_tab"
+"t" = "tab_new"
+"x" = "tab_close"
+"J" = "tab_next"
+"K" = "tab_prev"
+"r" = "reload"
+"f" = "hints"
+"i" = "insert"
+
+# Reserved browser shortcuts Aether takes over — the spike's core proof.
+[keymap.reserved]
+"C-w" = "tab_close"
+"C-t" = "tab_new"
+"C-n" = "tab_new"      # new window later; prove the override now
+"C-Tab" = "tab_next"

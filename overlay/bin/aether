@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Launch Firefox with the aether profile. -purge clears the startup cache first
+# (needed after editing overlay scripts; harmless otherwise).
+set -euo pipefail
+
+PROFILE_NAME="aether"
+MOZ_DIR="${HOME}/.mozilla/firefox"
+
+if [[ "${1:-}" == "-purge" ]]; then
+  shift
+  profile_path="$(MOZ_DIR="$MOZ_DIR" awk -F= -v name="$PROFILE_NAME" '
+    /^\[/{n=""; p=""; rel=1}
+    $1=="Name"{n=$2}
+    $1=="IsRelative"{rel=$2}
+    $1=="Path"{p=$2}
+    n==name && p!="" {print (rel=="1" ? ENVIRON["MOZ_DIR"] "/" p : p); exit}
+  ' "${MOZ_DIR}/profiles.ini")"
+  if [[ -n "$profile_path" && -d "${profile_path}/startupCache" ]]; then
+    rm -rf "${profile_path}/startupCache"
+    echo "[aether] startup cache purged"
+  fi
+fi
+
+exec firefox --no-remote -P "$PROFILE_NAME" "$@"
