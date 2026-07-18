@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Aether playground</title>
+  <style>
+    body { font: 16px system-ui; margin: 2rem; background: #fbf1c7; color: #3c3836; }
+    section { margin-bottom: 40rem; } /* force scrollable height */
+    a, button { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Aether playground</h1>
+  <section>
+    <p>Targets for hint mode and insert mode:</p>
+    <a href="#one">link one</a>
+    <a href="#two">link two</a>
+    <a href="#three">link three</a>
+    <button id="btn">a button</button>
+    <p><input id="field" type="text" placeholder="type here (insert mode)"></p>
+    <p>Scroll test: <kbd>j</kbd>/<kbd>k</kbd> should move this page.</p>
+  </section>
+  <section id="bottom">
+    <h2>Bottom of the page</h2>
+    <p>If you can see this after G, scroll-to-bottom works.</p>
+  </section>
+</body>
+</html>

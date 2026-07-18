@@ -1,2 +1,2 @@
-# fx-autoconfig loader is vendored at install time
+# legacy: pre-loader vendor dir
 overlay/chrome/utils/

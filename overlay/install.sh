@@ -4,7 +4,6 @@
 set -euo pipefail
 
 OVERLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FXAC_URL="https://github.com/MrOtherGuy/fx-autoconfig/archive/refs/heads/master.tar.gz"
 PROFILE_NAME="aether"
 MOZ_DIR="${HOME}/.mozilla/firefox"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/aether"
@@ -21,22 +20,24 @@ fi
 [[ -x "${FIREFOX_DIR}/firefox" ]] || die "no firefox binary in ${FIREFOX_DIR} (set FIREFOX_DIR)"
 log "firefox install dir: ${FIREFOX_DIR}"
 
-# --- 2. Vendor fx-autoconfig ------------------------------------------------
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-log "fetching fx-autoconfig..."
-curl -fsSL "$FXAC_URL" | tar -xz -C "$tmp" --strip-components=1
-
-# Loader utils live in the profile chrome dir; ours is symlinked from the repo,
-# so they land in overlay/chrome/utils (gitignored).
-mkdir -p "${OVERLAY_DIR}/chrome/utils"
-cp -r "$tmp/profile/chrome/utils/." "${OVERLAY_DIR}/chrome/utils/"
-
-# Autoconfig entry points go into the Firefox install dir (usually root-owned).
+# --- 2. Install the Aether autoconfig loader --------------------------------
+# Our own ~40-line loader (overlay/loader/) — no external dependency.
+# If the browser already has an autoconfig file (LibreWolf/Waterfox), append to
+# it; otherwise install a fresh config.js (autoconfig skips its first line).
 install_autoconfig() {
+  local existing_cfg
+  existing_cfg="$(ls "${FIREFOX_DIR}"/*.cfg 2>/dev/null | head -1 || true)"
   $1 mkdir -p "${FIREFOX_DIR}/defaults/pref"
-  $1 cp "$tmp/program/config.js" "${FIREFOX_DIR}/config.js"
-  $1 cp "$tmp/program/defaults/pref/config-prefs.js" "${FIREFOX_DIR}/defaults/pref/config-prefs.js"
+  if [[ -n "$existing_cfg" ]]; then
+    if ! grep -q "AETHER-LOADER" "$existing_cfg"; then
+      cat "${OVERLAY_DIR}/loader/aether-loader.cfg" | $1 tee -a "$existing_cfg" >/dev/null
+    fi
+  else
+    { echo "// aether"; cat "${OVERLAY_DIR}/loader/aether-loader.cfg"; } | $1 tee "${FIREFOX_DIR}/config.js" >/dev/null
+    printf 'pref("general.config.filename", "config.js");\npref("general.config.obscure_value", 0);\n' | \
+      $1 tee "${FIREFOX_DIR}/defaults/pref/config-prefs.js" >/dev/null
+  fi
+  $1 cp "${OVERLAY_DIR}/loader/zz-aether.js" "${FIREFOX_DIR}/defaults/pref/zz-aether.js"
 }
 if [[ -w "$FIREFOX_DIR" ]]; then
   install_autoconfig ""

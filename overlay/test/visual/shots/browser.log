@@ -1,0 +1,10 @@
+[Parent 9329, Main Thread] WARNING: Failed to create DBus proxy for org.a11y.Bus: Failed to execute child process “dbus-launch” (No such file or directory)
+: 'glib warning', file /root/.local/share/bsys6/work/librewolf-146.0.1-1/toolkit/xre/nsSigHandlers.cpp:201
+
+** (librewolf:9329): WARNING **: 03:49:52.855: Failed to create DBus proxy for org.a11y.Bus: Failed to execute child process ?dbus-launch? (No such file or directory)
+
+Exiting due to channel error.
+Exiting due to channel error.
+Exiting due to channel error.
+Exiting due to channel error.
+Exiting due to channel error.
