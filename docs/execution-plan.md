@@ -60,6 +60,8 @@ Trigger: the first requirement autoconfig cannot express (compile-time telemetry
 
 Only after the gate passes: agent runtime (decision #2 control plane — MCP → validated WebExt messaging → Xray bridge, per-tool consent, everything logged), context resurrection deepening, native blocking if uBO ever fails, sync (resolve Iroh vs js-libp2p then).
 
+Also post-gate: the **personalized-web ladder** (`docs/research/openui-ai-personalized-web.md`) — Tier 0 deterministic theming ships early inside floor item 3 (pywal/base16 + Zen-Boosts-style per-domain zaps + `base-select` UA theming when Gecko ships it); Tier 1 AI-generated CSS-only site boosts (local model → dotfile → deterministic apply) follows the local-AI sidebar; Tier 2 semantic calm-views and Tier 3 generative own-surface UIs (wandb-OpenUI patterns) are post-gate. Generated JS near page context is a different trust class — per-case consent, always.
+
 ## Standing Drills
 
 - **Monthly**: Firefox update + rebase (or autoconfig no-op check), cost logged.
