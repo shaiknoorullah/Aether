@@ -2,56 +2,66 @@
 
 Prime directive: every phase fits the maintenance budget. Rebases get an evening a month; features get evenings and weekends. Anything that doesn't fit gets cut, not stretched.
 
+Second directive, learned immediately: **I won't adopt a bare browser, even my own.** The daily-drive switch happens when *my* floor exists, not when a minimal spike works. The floor is defined below and it is allowed to take months — a gate I'll actually pass beats a fast one I won't.
+
+## The Adoption Floor (what "switchable" means for me)
+
+1. Vim modal keys + command palette
+2. Workspaces with session persistence
+3. Tab graveyard + vertical tabs
+4. Statusbar with widgets (tmux/polybar-class)
+5. EF supports (ambient time anchoring, task-conditioned focus, non-shaming structure)
+6. Theming — pywal/base16 system inheritance
+7. Local-AI sidebar (OpenAI-compatible gateway, hard kill switch)
+
+Explicitly *not* floor: context resurrection beyond what workspaces+persistence already give (deferred), native blocking (uBO works on Firefox; revisit only if it fails me), agent runtime (last, after the floor is daily-driven).
+
 ## Phase 0 — The Spike (no fork, no build)
 
-Goal: prove zero-chrome + modal keyboard interception on **stock Firefox** using the autoconfig/userChromeJS pattern (fx-autoconfig). No build infrastructure — the "overlay" starts life as a dotfiles-style directory symlinked into a dedicated Firefox profile. This is the cheapest possible test of the engine decision: if privileged autoconfig JS can own the keyboard and the chrome, the thin-fork thesis holds before I own a single patch.
+Goal: prove zero-chrome + modal keyboard interception on **stock Firefox** via the autoconfig/userChromeJS pattern (fx-autoconfig). No build infrastructure — the overlay starts as a dotfiles-style directory symlinked into a dedicated `aether` profile. Cheapest possible test of the engine decision: if privileged autoconfig JS can own the keyboard and the chrome, the thin-fork thesis holds before I own a single patch.
 
-Tasks, in order:
+Tasks:
+1. **Scaffold** `overlay/`: `chrome/` (userChrome.css, userContent.css), autoconfig loader (`config.js` + `defaults/pref/config-prefs.js`), `user.js` prefs, install script provisioning the `aether` profile.
+2. **Zero-chrome**: hide tab strip, nav-bar, urlbar (summonable); full-viewport content.
+3. **Modal input**: capture-phase keydown listener in privileged JS. Prove the load-bearing claims: override Ctrl+W/T/N/Tab; normal-mode keys never reach page content.
+4. **Minimum navigable set**: `j/k`, `d/u`, `gg/G`, `H/L`, `o`, `t`/`x`, `J/K`, `f` hints (MVP quality).
+5. **Config as data**: keymap + options in TOML under `~/.config/aether/`.
+6. **Prefs baseline**: telemetry off, arkenfox-lite hardening.
 
-1. **Scaffold** `overlay/` in this repo: `chrome/` (userChrome.css, userContent.css), autoconfig loader (`config.js` + `defaults/pref/config-prefs.js`), `user.js` prefs, and an install script that provisions a separate `aether` Firefox profile. My daily browser stays untouched until Phase 1.
-2. **Zero-chrome**: hide tab strip, nav-bar, urlbar (summonable on demand); full-viewport content; minimal statusbar (mode indicator, URL, clock — the ambient time anchor from day one).
-3. **Modal input**: capture-phase keydown listener on the browser window in privileged JS. Prove the load-bearing claims: override Ctrl+W/T/N/Tab, and normal-mode keys never reach page content (site key-stealing prevention — the thing extensions structurally can't do).
-4. **Minimum navigable set**: `j/k` scroll, `d/u` half-page, `gg/G`, `H/L` history, `o` open (urlbar summon), `t`/`x` tab open/close, `J/K` tab cycle, `f` hint mode (MVP link enumeration is fine).
-5. **Config as data**: keymap and options in TOML under `~/.config/aether/`, parsed at startup. Hot-reload is a nice-to-have, not spike scope.
-6. **Prefs baseline**: telemetry off, arkenfox-lite hardening in `user.js`.
+Exit: shortcuts overridden, chrome hidden, modal browsing works on real sites, survives a Firefox point release with zero changes. Estimate: 1–2 weeks of evenings. If autoconfig can't do some interception, that finding is the first legitimate source patch and Phase 2 starts early, with data.
 
-Exit criteria:
-- Chrome fully hidden; all reserved shortcuts overridden; modal browsing works on real sites I use (GitHub, Gmail, YouTube, docs sites).
-- Survives a Firefox point-release update with zero changes (autoconfig = no rebase cost — measure this, don't assume it).
-- I can browse a full evening without the mouse except by choice.
+## Phase 1 — Build the Floor
 
-Estimate: 1–2 weeks of evenings. If autoconfig turns out insufficient for some interception, that finding is the first legitimate source patch — it moves me to Phase 2 early, with data instead of speculation.
+Order chosen by dependency and by how fast each piece makes the profile feel like *mine* (adoption is psychological; joy is load-bearing):
 
-## Phase 1 — The Daily-Drive Gate
+1. **Modal keys + palette** — from the spike; add ex-mode/command palette (urlbar repurposed or custom panel).
+2. **Statusbar** — the chrome frame everything else hangs on: mode indicator, workspace name, URL, **clock (first EF piece: ambient time anchor)**. Widget API from the start: a widget = TOML entry + JS module returning text/color, so ArgoCD/GitHub/Timewarrior-class widgets are additions, not rewrites.
+3. **Theming** — ingest pywal/base16 colors from disk into CSS variables; browser matches the rest of the rice. Cheap, high joy, do it early.
+4. **Vertical tabs + graveyard** — style Firefox's native vertical tabs (136+) rather than rebuild; graveyard = auto-archive closed/stale tabs to local store, recallable from the palette. No tab death.
+5. **Workspaces + persistence** — contextualIdentities for isolation + named session groups saved to disk, restore-on-open. (This already covers most of context resurrection.)
+6. **EF supports** — task-conditioned focus mode (workspace-scoped tab filter + notification suppression, ends when the task ends, not on a timer), non-shaming language everywhere, time-in-context display. No streaks, no failure states.
+7. **Local-AI sidebar** — sidebar panel → OpenAI-compatible gateway (`OLLAMA_ORIGINS`), kill switch in the statusbar.
 
-Switch my default browser to the aether profile for 30 days. Extensions: uBlock Origin + Bitwarden, nothing keyboard-related — the chrome layer owns keys now.
+Cadence: one floor item at a time, thinnest implementation that I'd actually use, 2-week personal verdict (keep/fix/kill) before the next. **Partial adoption starts early**: once items 1–4 exist, the aether profile becomes my browser for one real project; full switch waits for the floor.
 
-- Keep a friction log: one line per annoyance, no fixing mid-flow unless it blocks work.
-- Gate: after 30 days, am I opening another browser out of *need*? Each instance is either a fix or a scope cut. If the profile doesn't survive the month, the project thesis needs rework before any more building.
+Realistic cost: 2–4 months of evenings. That's the honest price of a gate I'll pass.
 
-Note on honesty: the research called native blocking a Must — that was market framing (MV3 insurance for Chrome refugees). On Firefox, uBO works. Native blocking waits until uBO personally fails me.
+## Phase 2 — The Daily-Drive Gate
 
-## Phase 2 — Own the Build (LibreWolf pattern) — only when forced
+Floor complete → switch default browser for 30 days. Extensions: uBO + Bitwarden, nothing keyboard-related. Friction log, one line per annoyance. Gate: am I opening another browser out of *need*? Each instance is a fix or a scope cut. If the floor doesn't hold me for a month, the thesis needs rework before more building.
+
+## Phase 3 — Own the Build (LibreWolf pattern) — only when forced
 
 Trigger: the first requirement autoconfig cannot express (compile-time telemetry/Pocket removal, true pre-parse interception, branding). Not before.
+- `patches/*.patch` + `mozconfig` + prefs + branding + build script; track the Firefox **release** channel.
+- Monthly rebase drill from day one: pull tag, reapply, build, log wall-clock. Budget: one evening. Two consecutive over-budget months ⇒ cut features or evaluate ESR.
 
-- Layout: `patches/*.patch` + `mozconfig` + prefs + branding + a build script; track the Firefox **release** channel.
-- Monthly rebase drill from day one: pull the new tag, reapply, build, log wall-clock time. Budget: one evening. Two consecutive over-budget months ⇒ cut features or evaluate ESR.
+## Phase 4 — Beyond the Floor
 
-## Phase 3+ — The Feature Ladder
-
-Order from CLAUDE.md, each gated by daily use and the budget:
-
-1. **Keybindings** — done in the spike; deepen (hint-mode quality, per-site modes) only as friction demands.
-2. **Blocking** — uBO until it fails me; native only then.
-3. **Workspaces** — contextualIdentities + session groups; full state isolation is the long-term shape, cookie isolation is the first rung.
-4. **Local-AI bridge** — sidebar → OpenAI-compatible gateway (`OLLAMA_ORIGINS=moz-extension://*`), hard kill switch from the first commit.
-5. **Agent runtime** — the decision #2 control plane (MCP → validated WebExt messaging → Xray bridge), per-tool consent, everything logged. Last, because it depends on everything above and on nothing being rushed.
-
-Per feature: a one-page mini-spec (what I do today / what the browser should do instead / thinnest implementation), build it, then a 2-week personal-use verdict — keep, fix, or kill. Kill without ceremony; the research corpus is full of features that would have been fun to build.
+Only after the gate passes: agent runtime (decision #2 control plane — MCP → validated WebExt messaging → Xray bridge, per-tool consent, everything logged), context resurrection deepening, native blocking if uBO ever fails, sync (resolve Iroh vs js-libp2p then).
 
 ## Standing Drills
 
-- **Monthly**: Firefox update + rebase (or autoconfig no-op check), cost logged in this file's changelog.
-- **Per feature**: friction-log review before starting the next rung.
+- **Monthly**: Firefox update + rebase (or autoconfig no-op check), cost logged.
+- **Per floor item**: friction-log review before starting the next.
 - **Never**: adoption metrics, roadmaps for other people, or resurrecting the council.
