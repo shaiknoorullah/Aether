@@ -178,7 +178,10 @@ function decodeCssEscapesOnce(css) {
 // Fixpoint decode — stricter than the tokenizer's single pass ('\5c 75'
 // yields a literal backslash the browser would NOT re-decode), which only
 // ever errs toward stripping more. Over-strict is the safe direction.
-function fullyDecodeCssEscapes(css) {
+// Exported for b2's acceptance gate: its executable-vector strip must run in
+// the same decoded space this sanitizer uses, or escaped spellings
+// ('-moz-\62 inding', '\65xpression') slip past a literal match.
+export function fullyDecodeCssEscapes(css) {
   for (;;) {
     const next = decodeCssEscapesOnce(css);
     if (next === css) return css;

@@ -66,7 +66,7 @@ Pick mode reuses `options.hint_chars`. New registry commands: `zap`, `boost_on`,
 `overlay/test/unit/b1-config.test.mjs`:
 19. config sync guard: `DEFAULTS.boosts` (`enabled: true`, `dir`) parses identically from `overlay/config/aether.toml` (f0 pattern)
 
-## 5. Visual states — `overlay/test/visual/scenarios.d/b1-site-boosts.sh`
+## 5. Visual states — `overlay/test/visual/scenarios.d/g1-site-boosts-deterministic.sh`
 
 Against the harness playground page (served or extended so the target element is stable), boosts `dir` pointed at a scenario temp dir:
 

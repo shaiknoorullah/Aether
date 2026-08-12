@@ -6,10 +6,14 @@
 // (aether-workspaces-service.sys.mjs owns the file and the containers).
 //
 // Model: {active, nextId, workspaces: [{name, containerId, tabRefs,
-// lastActive, selectedId}]} in CREATION order; tabRefs: [{id, url, title}].
-// containerId 0 = no container (vanilla browsing). selectedId is the ref id
-// of the workspace's remembered landing tab (null = fall back to the first
-// ref) — persisted so restore lands on the active workspace's lastActive tab.
+// lastActive, selectedId}], contexts} in CREATION order; tabRefs: [{id, url,
+// title}]. containerId 0 = no container (vanilla browsing). selectedId is the
+// ref id of the workspace's remembered landing tab (null = fall back to the
+// first ref) — persisted so restore lands on the active workspace's
+// lastActive tab. contexts (b3): per-tab {url, scrollY, capturedAt} records
+// keyed by ref id — serialized as schema 2, sanitized on deserialize.
+
+import { dropContext, sanitizeContexts } from "./aether-resurrect.sys.mjs";
 
 // Neutral statusbar copy — no error states, no scolding.
 export function nameInUseMessage(name) {
@@ -33,6 +37,7 @@ export function createModel(defaultName) {
     workspaces: [
       { name: defaultName, containerId: 0, tabRefs: [], lastActive: 0, selectedId: null },
     ],
+    contexts: {},
   };
 }
 
@@ -96,7 +101,7 @@ export function adopt(model, wsName, { id, url, title }) {
   if (id === undefined || id === null) {
     id = model.nextId++;
   } else {
-    removeTab(model, id);
+    detachRef(model, id); // a MOVE keeps the id — and its context record (b3)
     if (Number.isInteger(id) && id >= model.nextId) model.nextId = id + 1;
   }
   const ref = { id, url, title };
@@ -131,7 +136,7 @@ export function updateTab(model, id, { url, title }) {
 }
 
 // Drop a ref wherever it lives; a zero-tab workspace stays alive.
-export function removeTab(model, id) {
+function detachRef(model, id) {
   for (const ws of model.workspaces) {
     const i = ws.tabRefs.findIndex(r => r.id === id);
     if (i !== -1) {
@@ -142,15 +147,23 @@ export function removeTab(model, id) {
   }
 }
 
+// A CLOSE, not a move: the ref goes and its context record dies with it (b3).
+export function removeTab(model, id) {
+  detachRef(model, id);
+  dropContext(model, id);
+}
+
 export function tabsOf(model, name) {
   return find(model, name)?.tabRefs ?? [];
 }
 
 export function serialize(model) {
   return JSON.stringify({
+    schema: 2, // b3: contexts joined the file — additive, old readers ignore both
     active: model.active,
     nextId: model.nextId,
     workspaces: model.workspaces,
+    contexts: model.contexts ?? {},
   });
 }
 
@@ -205,5 +218,14 @@ export function deserialize(text, defaultName) {
     }
   }
   const active = seenNames.has(parsed.active) ? parsed.active : workspaces[0].name;
-  return { active, nextId, workspaces };
+  // b3 contexts: sanitize per-entry, then keep only records whose id a ref
+  // HONESTLY carried in the file (seenIds) — a reassigned orphan id is a
+  // fresh identity, so a stale record can never misattach to it. Schema-less
+  // v1 files simply have none. Age pruning stays in the service (Date.now).
+  const sanitized = sanitizeContexts(parsed.contexts);
+  const contexts = {};
+  for (const key of Object.keys(sanitized)) {
+    if (seenIds.has(Number(key))) contexts[key] = sanitized[key];
+  }
+  return { active, nextId, workspaces, contexts };
 }

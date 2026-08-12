@@ -54,7 +54,7 @@
 `overlay/test/unit/b1-boosts.test.mjs` (extended):
 16. the reporting form of `sanitizeCss` returns the same surviving CSS as the plain form on b1's exfil fixture — one sanitizer, verified equivalent from the b1 side
 
-## 5. Visual states — `overlay/test/visual/scenarios.d/b2-ai-css-boosts.sh`
+## 5. Visual states — `overlay/test/visual/scenarios.d/g2-ai-css-boosts.sh`
 
 Extends the f7 mock gateway with a canned `:boost` reply: one fenced CSS block that **loudly recolors the playground** (unmissable background/accent swap) and deliberately includes one `@import` + one remote `url()` rule so the strip summary is non-empty. The playground page carries a sentinel text string. Boosts `dir` at a scenario temp dir; mock logs every request body.
 

@@ -336,6 +336,50 @@ test("boost-gen: expression() and -moz-binding are stripped and named", () => {
   );
 });
 
+// 10b. escaped / comment-split spellings of the executable vectors ------------
+// The CSS tokenizer decodes escapes ('-moz-\62 inding' -> '-moz-binding',
+// '\65xpression' -> 'expression') and allows comments wherever whitespace
+// goes ('-moz-binding/**/:') BEFORE it recognizes tokens — so a literal-only
+// match would show 'nothing stripped' while the dotfile carries the vector.
+// The gate must strip these in decoded space and report each one.
+
+test("boost-gen: escaped and comment-split executable spellings are stripped and named", () => {
+  const raw = [
+    ".keep { color: red; }",
+    ".a { -moz-\\62 inding: url(data:text/xml,evil); }",
+    ".b { -moz-binding/**/: url(data:text/xml,evil); }",
+    ".c { width: \\65xpression(alert(1)); }",
+  ].join("\n");
+  const res = acceptanceGate(raw);
+  assert.equal(res.ok, true);
+  assert.ok(res.css.includes(".keep"), "the benign rule survives");
+  assert.ok(
+    !/-moz-binding|-moz-\\62\s?inding/i.test(res.css),
+    `an escaped/comment-split -moz-binding survived: ${JSON.stringify(res.css)}`,
+  );
+  assert.ok(
+    !/expression\s*\(|\\65\s?xpression/i.test(res.css),
+    `an escaped expression() survived: ${JSON.stringify(res.css)}`,
+  );
+  assert.equal(res.removedRules.length, 3, "each of the three vectors is reported, none passes silently");
+  // the strip summary never lies: the surviving CSS is stable under the gate
+  const again = acceptanceGate(res.css);
+  assert.equal(again.css, res.css, "gate output is a gate fixpoint");
+  assert.deepEqual(again.removedRules, [], "nothing left to strip on re-entry");
+});
+
+test("boost-gen: benign escapes still pass byte-identical (the decode probe never rewrites clean CSS)", () => {
+  const clean = [
+    "/* escaped identifier from a zap selector */",
+    "#\\31 23-id { color: #fabd2f; }",
+    '.quote::before { content: "\\201C"; }',
+  ].join("\n");
+  const res = acceptanceGate(clean);
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.removedRules, []);
+  assert.equal(res.css, clean, "benign escapes are not an excuse to rewrite the text");
+});
+
 // 11. oversize CSS is rejected whole — never silently truncated ---------------
 
 test("boost-gen: CSS over the 32 KiB cap -> {ok: false, reason}, rejected whole", () => {

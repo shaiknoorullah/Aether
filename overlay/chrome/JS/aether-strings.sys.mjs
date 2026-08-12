@@ -92,5 +92,12 @@ export function noBoostHereMessage(scheme) {
 export const BOOSTS_OFF_MESSAGE =
   "boosts are off — enabled = true under [boosts] in aether.toml turns them on";
 
+// :boost in a window's first moments, while the boosts-dir scan is still in
+// flight — [boosts] is already on, the registry just is not up yet. Factual,
+// and distinct from the off-state: saying "boosts are off" here would be
+// asserting a falsehood.
+export const BOOSTS_STARTING_MESSAGE =
+  "boosts are still starting up — :boost again in a moment";
+
 // The reply carried no single fenced CSS block — one calm line, nothing else.
 export const BOOST_NO_CSS_MESSAGE = "no single css block in the reply";

@@ -1,13 +1,15 @@
-# Aether Overlay — v1.0.0 (the adoption floor)
+# Aether Overlay — v1.1.0 (the adoption floor + boosts + resurrection)
 
 Zero-chrome, modal, themed, workspace-aware Firefox overlay. No fork, no build
 step, no dependencies. The loader is our own ~45 lines of autoconfig
 (`loader/`); everything Aether is in this directory.
 
-**Budget audit (v1.0.0)**: 3,635 lines total on the runtime path —
-2,982 privileged JS, 314 chrome markup/CSS, 339 config/prefs/loader/install.
-Zero npm packages, zero runtime dependencies, zero build steps: tests run on
-bare `node --test`, the browser loads the files as-is.
+**Budget audit (v1.1.0)**: 5,137 lines total on the runtime path —
+4,451 privileged JS, 331 chrome markup/CSS, 355 config/prefs/loader/install
+(+1,502 over the v1.0.0 audit figure; see the changelog in
+`docs/execution-plan.md`). Still zero npm packages, zero runtime dependencies,
+zero build steps: tests run on bare `node --test`, the browser loads the files
+as-is.
 
 ## What's here (each claim is test-proven, see `test/`)
 
@@ -43,6 +45,39 @@ bare `node --test`, the browser loads the files as-is.
   only**, enforced in code; hard kill switch, default OFF — when off the
   network path throws (the visual test proves zero requests leave); model
   output is `textContent` only, never rendered or executed. (f7)
+- **Site boosts, deterministic** — per-domain CSS dotfiles
+  (`~/.config/aether/boosts/<domain>.css`) applied to matching http(s) pages on
+  load: exact normalized host first, then parent domains down to two labels
+  (naive suffix walk, no PSL — documented edge). `:zap` enters an element
+  picker on the hint machinery (distinct red badges — pick-to-hide never looks
+  like pick-to-click); picking appends a dated `display: none !important` rule
+  to the domain's dotfile and re-applies. The dotfile alone persists the zap
+  across relaunch — no hidden state store; undo is deleting the line in vim.
+  `:boost_off` restores the pristine page (session-scoped by design;
+  visual-proven), `:boost_on` re-enables (registry-level unit test). All boost
+  CSS passes a lexical sanitizer on every apply: `@import`, non-`data:`
+  `url()`, and `image-set()` sources are stripped, escape-decoded spellings
+  included — a boost file has no known network-fetch channel. (b1)
+- **AI CSS boosts** — `:boost` samples the page's *structure* (top selectors +
+  computed colors/fonts — never page text, proven by the visual scenario's
+  request-log sentinel check), renders it with the active `--aether-*` palette
+  into a prompt, and streams a CSS-only reskin from the f7 gateway into a
+  preview panel with a strip summary (each sanitized-away rule named, or
+  `nothing stripped`). Enter accepts — dated append to the b1 dotfile,
+  re-applied through the same sanitizer; Esc dismisses. Nothing is ever
+  auto-applied or auto-written; one generation per explicit `:boost`; replies
+  must be a single fenced CSS block, hard 32 KiB gate cap. Kill switch off →
+  the exact f7 off-state, zero requests (mock-log-proven). (b2)
+- **Context resurrection** — scroll position is part of workspace context.
+  Throttled top-frame scroll samples (1/s + pagehide flush) store
+  `{url, scrollY, capturedAt}` per tab inside `aether-workspaces.json`
+  (schema 2; old schema-less files still deserialize). A restart-restored tab
+  whose completed load exactly matches the recorded url gets one silent
+  instant scroll — the user scrolling first disarms it, a url mismatch drops
+  the stale record, and `y = 0` deletes rather than stores. Records prune at
+  30 days, on orphaned ids, and on url drift; closing a tab drops its record.
+  No UI, no banner, no new strings, no keybinding — `[workspaces]
+  resurrect = false` turns capture and restore off. (b3)
 
 ## Keybindings (defaults from `config/aether.toml`)
 
@@ -63,7 +98,11 @@ palette: `Tab` cycles completions/candidates, `Enter` runs, `Escape` closes.
 
 Palette-only commands (no default binding): `open <url>`, `tab <n>`,
 `ws <name>`, `ws_rename <name>`, `ws_next`, `graveyard [query]`,
-`focus <task>`, `done`, `theme_reload`, `ai_on`, `ai_off`.
+`focus <task>`, `done`, `theme_reload`, `ai_on`, `ai_off`, `zap`, `boost`,
+`boost_on`, `boost_off`, `boost_edit` (opens the resolved boost dotfile in a
+tab — real editing happens in vim). All five boost/zap commands are zero-arg
+and completable; any can be bound in `[keymap.normal]` like every registry
+command.
 
 ## Layout
 
@@ -74,7 +113,7 @@ overlay/
   prefs/user.js           telemetry-off + hardening + vertical-tab/restore prefs
   config/aether.toml      keymap + options → ~/.config/aether/aether.toml
   loader/                 our autoconfig loader (replaces fx-autoconfig)
-  specs/                  f1–f7 feature specs (behavior + tests + non-goals)
+  specs/                  f1–f7 + b1–b3 feature specs (behavior + tests + non-goals)
   test/                   unit (node --test, zero deps) + visual (real browser)
   chrome/
     userChrome.css        zero-chrome, statusbar, palette, sidebar theming
@@ -94,6 +133,9 @@ overlay/
       aether-strings.sys.mjs           EF copy — the lexicon-sweep target
       aether-ai-client.sys.mjs         pure request builder + SSE parser
       aether-ai-state.sys.mjs          pure kill switch + conversation model
+      aether-boosts.sys.mjs            pure domain match + registry + zap selector + CSS sanitizer
+      aether-boost-gen.sys.mjs         pure skeleton serializer + prompt + extract + acceptance gate
+      aether-resurrect.sys.mjs         pure scroll-context records + prune + serde guards
       aether-actors.sys.mjs            JSWindowActor registration (once)
       aether-content-parent.sys.mjs    actor: content → chrome relay
       aether-content-child.sys.mjs     actor: scroll, hints, focus tracking
@@ -115,16 +157,20 @@ seed `~/.config/aether/aether.toml` if absent.
 ## Tests
 
 ```sh
-node --test overlay/test/unit/      # 224 tests, node:test + node:assert only
+node --test overlay/test/unit/      # 322 tests, node:test + node:assert only
 overlay/test/visual/run.sh          # real-browser scenarios under Xvfb
 ```
 
 Unit tests cover the pure modules (key engine, palette, widgets, theme,
-graveyard, workspaces, focus, strings, AI client/state, config sync guards).
-Visual scenarios prove what purity keeps out of unit tests: chord interception,
-chrome hiding, graveyard/workspace persistence across relaunch, notification
-pref suppress/restore (prefs.js evidence), and the AI kill switch (mock-gateway
-request log gains zero entries while off).
+graveyard, workspaces, focus, strings, AI client/state, boosts, boost-gen,
+resurrect, config sync guards). Visual scenarios prove what purity keeps out
+of unit tests: chord interception, chrome hiding, graveyard/workspace
+persistence across relaunch, notification pref suppress/restore (prefs.js
+evidence), the AI kill switch (mock-gateway request log gains zero entries
+while off — asserted again through `:boost`), zap persistence via the dotfile
+alone across relaunch, the b2 request-log sentinel check (page text never
+reaches the model; one request per generation), and scroll position surviving
+a workspace round-trip and a relaunch.
 
 ## After editing scripts
 
@@ -138,7 +184,20 @@ Firefox caches autoconfig scripts in the profile's `startupCache`. Either run
 `devtools.debugger.remote-enabled`). Open it with Ctrl+Alt+Shift+I.
 Errors from the overlay land in the Browser Console (Ctrl+Shift+J).
 
-## Known limitations (accepted, v1.0.0)
+## Known limitations (accepted, v1.1.0)
+
+- Boost domain fallback is a naive suffix walk, no PSL — a `co.uk`-class
+  parent can over-match; the fix is the exact-host dotfile.
+- Boost CSS styles the top document only: no Shadow DOM, no iframes.
+- The sanitizer is lexical and scoped to the known fetch vectors it strips —
+  it is not a CSS parser.
+- `:boost_off` is session-scoped; permanence lives in the dotfile.
+- `:boost_edit` is proven as a registry command only; its open-in-tab behavior
+  is glue. `:boost_on` re-enable is unit-proven at the registry level; the
+  visual scenario exercises `:boost_off` only.
+- Scroll restore is one shot, instant, clamp accepted — lazy-loading pages may
+  restore short. Arming happens on restart restore only, and only on an exact
+  url match.
 
 - Hints are top-frame only, MVP label placement.
 - Insert-mode detection = content focus tracking + urlbar focus; edge cases expected.

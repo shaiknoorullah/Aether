@@ -4,7 +4,7 @@
 // f7 stream, and the b1 file append. One sanitizer — the gate runs b1's
 // sanitizeCssReport and only adds the CSS-execution vectors on top.
 
-import { sanitizeCssReport } from "./aether-boosts.sys.mjs";
+import { sanitizeCssReport, fullyDecodeCssEscapes } from "./aether-boosts.sys.mjs";
 
 // Top-by-count cap on serialized selectors — enough structure for a reskin,
 // small enough that the prompt stays bounded.
@@ -124,17 +124,50 @@ export function extractCss(replyText) {
 
 // b2's extra vectors on top of b1's fetch stripping: CSS that EXECUTES.
 // expression(...) values and -moz-binding declarations (XBL runs code — a
-// data: url is no excuse) drop as whole declarations, each reported.
+// data: url is no excuse) drop as whole declarations, each reported. The
+// tokenizer allows comments wherever whitespace goes ('-moz-binding/**/:'
+// is still a -moz-binding declaration), so the patterns tolerate comment
+// gaps too — over-strict is the safe direction. The `removed` array is
+// optional so the decoded probe below can run without collecting.
+const CSS_COMMENT_GAP = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
+const EXPRESSION_RE = new RegExp(
+  String.raw`[-a-zA-Z]+${CSS_COMMENT_GAP}:[^;{}]*expression${CSS_COMMENT_GAP}\([^;{}]*;?`,
+  "gi"
+);
+const MOZ_BINDING_RE = new RegExp(
+  String.raw`-moz-binding${CSS_COMMENT_GAP}:[^;{}]*;?`,
+  "gi"
+);
+
 function stripExecutable(css, removed) {
   return css
-    .replace(/[-a-zA-Z]+\s*:[^;{}]*expression\s*\([^;{}]*;?/gi, m => {
-      removed.push(m.trim().replace(/;$/, ""));
+    .replace(EXPRESSION_RE, m => {
+      removed?.push(m.trim().replace(/;$/, ""));
       return "";
     })
-    .replace(/-moz-binding\s*:[^;{}]*;?/gi, m => {
-      removed.push(m.trim().replace(/;$/, ""));
+    .replace(MOZ_BINDING_RE, m => {
+      removed?.push(m.trim().replace(/;$/, ""));
       return "";
     });
+}
+
+// stripExecutable in the same decoded space the b1 sanitizer uses: escaped
+// spellings ('-moz-\62 inding', '\65xpression') decode before the tokenizer
+// recognizes tokens, so a literal match on the encoded text is not enough.
+// Mirrors sanitize() in aether-boosts.sys.mjs — a decode-probe first, so
+// clean CSS (benign escapes included) stays byte-identical; only when the
+// decoded text hides an executable vector does the decoded fixpoint run.
+// Both steps only ever shrink the text, so the loop terminates.
+function stripExecutableDecoded(css, removed) {
+  const out = stripExecutable(css, removed);
+  const decoded = fullyDecodeCssEscapes(out);
+  if (stripExecutable(decoded) === decoded) return out;
+  let cur = decoded;
+  for (;;) {
+    const next = fullyDecodeCssEscapes(stripExecutable(cur, removed));
+    if (next === cur) return cur;
+    cur = next;
+  }
 }
 
 // The acceptance gate: what Accept is allowed to write. Runs the b1-shared
@@ -160,7 +193,7 @@ export function acceptanceGate(rawCss) {
   for (;;) {
     const report = sanitizeCssReport(css);
     removedRules.push(...report.removedRules);
-    const next = stripExecutable(report.css, removedRules);
+    const next = stripExecutableDecoded(report.css, removedRules);
     if (next === css) break;
     css = next;
   }

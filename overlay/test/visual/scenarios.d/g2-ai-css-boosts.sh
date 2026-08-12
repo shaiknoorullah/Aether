@@ -225,6 +225,14 @@ EOF
 
 # Config is read at startup only — relaunch so [ai]/[boosts] take effect.
 relaunch_browser
+# Own precondition, never inherited: a preceding scenario (f7) may have left
+# the persisted kill-switch pref OFF, and the pref wins over this dotfile's
+# [ai] enabled = true — :boost would be dead and the mock silent.
+key colon
+type_text "ai_on"
+key Return
+sleep 1
+key Escape
 nav "$B2_PAGE_URL" 4
 wait_title "Aether b2 boost" 15 || {
   echo "[b2] page nav did not land, retrying"

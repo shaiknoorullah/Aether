@@ -55,6 +55,9 @@
   const { AetherWorkspaces } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-workspaces-service.sys.mjs"
   );
+  const { captureScroll, restoreY } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-resurrect.sys.mjs"
+  );
   const {
     startSession,
     endSession,
@@ -83,6 +86,7 @@
     NOTHING_STRIPPED_MESSAGE,
     noBoostHereMessage,
     BOOSTS_OFF_MESSAGE,
+    BOOSTS_STARTING_MESSAGE,
     BOOST_NO_CSS_MESSAGE,
   } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-strings.sys.mjs"
@@ -286,7 +290,13 @@
         ]),
       };
       win.gBrowser.addProgressListener(this.progressListener);
-      this.onTabSelect = () => this.updateUrl(win.gBrowser.currentURI?.spec);
+      this.onTabSelect = () => {
+        this.updateUrl(win.gBrowser.currentURI?.spec);
+        // Focus tracking is per-tab; a stale editable-focus flag from the old
+        // tab must never pin the badge in INSERT after a switch/close.
+        this.contentEditableFocused = false;
+        this.syncUrlbarFocus();
+      };
       win.gBrowser.tabContainer.addEventListener("TabSelect", this.onTabSelect);
       this.onTabCount = () => this.renderWidgets(["tabs"]);
       win.gBrowser.tabContainer.addEventListener("TabOpen", this.onTabCount);
@@ -337,6 +347,15 @@
           this.applyBoostsFor(browser, loc);
           const tab = win.gBrowser.getTabForBrowser(browser);
           if (tab) this.updateTabRef(tab, { url: loc?.spec });
+        },
+        // b3: the restore trigger — a restored-and-armed tab gets its one
+        // scroll shot once its top-level load completes at the recorded url.
+        onStateChange: (browser, wp, req, stateFlags) => {
+          if (!wp.isTopLevel) return;
+          const F = Ci.nsIWebProgressListener;
+          if (!(stateFlags & F.STATE_STOP) || !(stateFlags & F.STATE_IS_NETWORK)) return;
+          const tab = win.gBrowser.getTabForBrowser(browser);
+          if (tab) this.resurrectOnLoad(tab, browser);
         },
       };
       win.gBrowser.addTabsProgressListener(this.wsProgressListener);
@@ -475,6 +494,8 @@
 
     setMode(mode) {
       this.engine.setMode(mode);
+      // Pick styling lives and dies with hint mode.
+      if (mode !== MODE.HINT && this.bar) delete this.bar.dataset.pick;
       this.renderStatus();
     }
 
@@ -554,20 +575,48 @@
             this.setMode(MODE.NORMAL);
           }
           break;
-        case "Aether:HintsDone":
+        case "Aether:HintsDone": {
           if (this.mode === MODE.HINT) this.setMode(MODE.NORMAL);
-          if (data?.reason === "picked" && data.descriptor) {
+          // The zap write path is armed by :zap and bound to the tab it was
+          // armed on — an unsolicited "picked" message from any other frame
+          // or tab writes nothing (dotfile writes are a consent-gated act).
+          const armedFor = this.pendingZap;
+          this.pendingZap = null;
+          if (
+            data?.reason === "picked" &&
+            data.descriptor &&
+            armedFor &&
+            bc?.top === this.win.gBrowser.selectedBrowser.browsingContext?.top &&
+            bc?.top?.id === armedFor
+          ) {
             this.finishZap(data.descriptor).catch(e =>
               console.error("[aether] could not write the zap rule:", e)
             );
           }
           break;
+        }
         case "Aether:BoostSampleDone":
-          this.continueBoost(data?.sample).catch(e => {
+          this.continueBoost(data?.sample, data?.token).catch(e => {
             console.error("[aether] could not generate the boost:", e);
             this.closeBoostPreview();
           });
           break;
+        case "Aether:ScrollSample": {
+          // b3 capture: store the tab's latest position. The user always
+          // wins — a sample from a still-armed tab disarms it BEFORE any
+          // restore shot could fire, so the page is never yanked mid-read.
+          const browser = bc?.top?.embedderElement;
+          const tab = browser && this.win.gBrowser.getTabForBrowser(browser);
+          if (!tab) break;
+          // Private tabs leave no trace on disk — same rule as the graveyard.
+          if (PrivateBrowsingUtils.isBrowserPrivate(browser)) break;
+          delete tab._aetherResurrect;
+          const model = AetherWorkspaces.model;
+          if (!this.resurrectOn() || !model || tab._aetherWsId === undefined) break;
+          captureScroll(model, tab._aetherWsId, data.url, data.y, Date.now());
+          AetherWorkspaces.persistSoon();
+          break;
+        }
       }
     }
 
@@ -728,7 +777,14 @@
       for (const ws of model.workspaces) {
         const userContextId = AetherWorkspaces.resolveContainer(ws);
         for (const ref of ws.tabRefs) {
-          this.addWorkspaceTab(ref.url, userContextId)._aetherWsId = ref.id;
+          const tab = this.addWorkspaceTab(ref.url, userContextId);
+          tab._aetherWsId = ref.id;
+          // b3: restart restore is the only arming path — a reopened tab
+          // with a context record gets one scroll shot once it loads at the
+          // recorded url. Same-session navigations are never armed.
+          if (this.resurrectOn() && model.contexts?.[ref.id]) {
+            tab._aetherResurrect = "armed";
+          }
         }
       }
       this.applyWorkspaceView();
@@ -798,7 +854,12 @@
         if (tab._aetherWsId === undefined) continue;
         (activeIds.has(tab._aetherWsId) ? mine : others).push(tab);
       }
-      for (const tab of mine) gB.showTab(tab);
+      for (const tab of mine) {
+        gB.showTab(tab);
+        // b3 switch hook: a restored tab whose load finished while hidden
+        // takes its one scroll shot now that it's visible.
+        if (tab._aetherResurrect === "ready") this.fireResurrect(tab);
+      }
       // The remembered landing tab lives in the model (persisted), so it
       // survives restarts and renames; null/stale falls back to the first.
       const selectedId = model.workspaces.find(w => w.name === model.active)?.selectedId;
@@ -810,6 +871,55 @@
       gB.selectedTab = target;
       for (const tab of others) gB.hideTab(tab);
       this.renderWidgets(["workspace", "tabs"]);
+    }
+
+    // --- context resurrection (b3): restore side ----------------------------
+
+    // [workspaces] resurrect — off = never capture, never restore; existing
+    // records are left alone (pruning still ages them out via the service).
+    resurrectOn() {
+      return (
+        (this.config.workspaces?.resurrect ??
+          AetherConfig.DEFAULTS.workspaces.resurrect) === true
+      );
+    }
+
+    // Load-complete hook: only an armed (restart-restored) tab reacts. Url
+    // mismatch (redirect, changed content) disarms without a shot — a stale
+    // record is dropped, never force-applied. A tab still hidden in an
+    // inactive workspace waits for its show (the applyWorkspaceView hook) so
+    // the shot lands on a visible page.
+    resurrectOnLoad(tab, browser) {
+      if (tab._aetherResurrect !== "armed") return;
+      const model = AetherWorkspaces.model;
+      const y =
+        model && tab._aetherWsId !== undefined
+          ? restoreY(model, tab._aetherWsId, browser.currentURI?.spec)
+          : null;
+      if (y === null) {
+        delete tab._aetherResurrect;
+        return;
+      }
+      if (tab.hidden) {
+        tab._aetherResurrect = "ready";
+        return;
+      }
+      this.fireResurrect(tab);
+    }
+
+    // The one shot: disarm first, then send Aether:ScrollTo {y} once and
+    // abandon — no retry, no polling; a page that hasn't reached that height
+    // yet clamps and the clamp is accepted. The url is re-checked here so the
+    // hidden-workspace wait can never apply a record the tab navigated past.
+    fireResurrect(tab) {
+      delete tab._aetherResurrect;
+      const model = AetherWorkspaces.model;
+      const browser = this.win.gBrowser.getBrowserForTab(tab);
+      const y =
+        model && tab._aetherWsId !== undefined
+          ? restoreY(model, tab._aetherWsId, browser?.currentURI?.spec)
+          : null;
+      if (y !== null) this.sendContentTo(browser, "Aether:ScrollTo", { y });
     }
 
     // Membership bookkeeping (TabOpen/TabClose/location/title → model).
@@ -1066,7 +1176,12 @@
     startZap() {
       if (!this.boostRegistry) return;
       if (!this.boostHostOf(this.win.gBrowser.selectedBrowser)) return;
+      this.pendingZap =
+        this.win.gBrowser.selectedBrowser.browsingContext?.top?.id ?? null;
+      if (!this.pendingZap) return;
       this.setMode(MODE.HINT);
+      if (this.bar) this.bar.dataset.pick = "1";
+      this.renderStatus();
       this.sendContent("Aether:HintsStart", {
         chars: this.opt("hint_chars"),
         pick: true,
@@ -1159,8 +1274,14 @@
         this.showMessage(noBoostHereMessage(scheme || "this"));
         return;
       }
-      if (!this.boostsConfig?.enabled || !this.boostRegistry) {
+      if (!this.boostsConfig?.enabled) {
         this.showMessage(BOOSTS_OFF_MESSAGE);
+        return;
+      }
+      if (!this.boostRegistry) {
+        // enabled = true but initBoosts' dir scan hasn't resolved yet (a
+        // milliseconds-wide window at window-open) — say that, not "off".
+        this.showMessage(BOOSTS_STARTING_MESSAGE);
         return;
       }
       try {
@@ -1176,9 +1297,14 @@
       const host = this.boostHostOf(browser);
       const domain = this.matchedBoostDomain(host) ?? candidateDomains(host)[0];
       if (!domain) return;
-      this.boostPreview = { phase: "sampling", domain };
+      // Correlate the sample round-trip to THIS invocation: the child echoes
+      // the token in BoostSampleDone, and continueBoost drops anything else —
+      // a stale reply from a dismissed run (dismiss → navigate → :boost again)
+      // must never pair page A's skeleton with page B's domain.
+      const token = (this.boostSampleSeq = (this.boostSampleSeq ?? 0) + 1);
+      this.boostPreview = { phase: "sampling", domain, token };
       this.openBoostPreviewPanel(domain);
-      this.sendContentTo(browser, "Aether:BoostSample", {});
+      this.sendContentTo(browser, "Aether:BoostSample", { token });
     }
 
     // Open the sidebar without stealing focus into the prompt (unlike :ai).
@@ -1212,9 +1338,11 @@
     // The child's structural sample arrived: serialize (whitelist enforced
     // again in pure code), build the prompt with the active palette, stream
     // the one-shot request through the f7 path into the preview.
-    async continueBoost(sample) {
+    async continueBoost(sample, token) {
       const p = this.boostPreview;
-      if (!p || p.phase !== "sampling") return;
+      // The token pins the reply to the invocation that asked for it — a
+      // stale sample from an earlier (dismissed) run correlates to nothing.
+      if (!p || p.phase !== "sampling" || token !== p.token) return;
       try {
         assertOn(this.aiState); // the switch may have flipped mid-round-trip
       } catch {
@@ -1297,13 +1425,22 @@
     async acceptBoost() {
       const p = this.boostPreview;
       if (!p || p.phase !== "review") return;
+      // Flip the phase BEFORE the first await: Enter autorepeat (or a rapid
+      // double-tap) re-enters here while the write is in flight, and every
+      // re-entry must bounce off this guard — one accept, one dated block.
+      p.phase = "writing";
       const date = new Date().toISOString().slice(0, 10);
-      await this.ensureBoostFile(p.domain, date);
-      await IOUtils.writeUTF8(
-        this.boostPath(p.domain),
-        `${generatedHeader(p.domain, date)}\n${p.css}\n`,
-        { mode: "appendOrCreate" }
-      );
+      try {
+        await this.ensureBoostFile(p.domain, date);
+        await IOUtils.writeUTF8(
+          this.boostPath(p.domain),
+          `${generatedHeader(p.domain, date)}\n${p.css}\n`,
+          { mode: "appendOrCreate" }
+        );
+      } catch (e) {
+        this.closeBoostPreview(); // never leave the panel stuck in 'writing'
+        throw e; // the keydown wrapper logs it
+      }
       this.boostCache.delete(p.domain);
       this.closeBoostPreview();
       this.showMessage(boostWrittenMessage(p.domain));
@@ -1312,10 +1449,12 @@
     }
 
     // Esc: discard everything — a normal outcome, not an error. Mid-stream it
-    // also pulls the abort handle.
+    // also pulls the abort handle. Once Enter has committed the write
+    // ('writing'), Esc is a no-op: the accept is already the outcome, and a
+    // 'boost dismissed' message here would be a lie the write then overwrites.
     dismissBoost() {
       const p = this.boostPreview;
-      if (!p) return;
+      if (!p || p.phase === "writing") return;
       if (p.phase === "streaming" && this.aiAbort) {
         this.aiAbort.abort();
         this.aiAbort = null;
