@@ -70,6 +70,10 @@ Also post-gate: the **personalized-web ladder** (`docs/research/openui-ai-person
 
 ## Changelog
 
+### v1.1.0 — 2026-08-12 (main-session verification addendum)
+
+Post-audit fixes applied after manual review of the full combined suite: :zap write path armed-and-tab-bound (unsolicited actor messages write nothing); private windows excluded from scroll capture; distinct red PICK badge; stale editable-focus reset on tab switch; boost scenarios renamed g1–g3 to run after the floor suite (fixes the combined-run state-leak blocker); g2 establishes its own kill-switch precondition (a preceding f7 run leaves the persisted pref OFF, and the pref wins over TOML — found only by running scenarios in combined order). Combined suite verified green end-to-end; b2's accept flow visually confirmed stripping smuggled @import/url() exfil vectors; b3 restart restore confirmed on screen. Known truthful oddity: after reserved Ctrl+W closes a tab, the badge may show INSERT because Firefox restores focus to the previous tab's text field — the badge follows real focus, by design.
+
 ### v1.0.0 — 2026-07-18
 
 Phase 0 and Phase 1 complete: the spike plus all seven floor items, in order (f1 keys+palette, f2 statusbar widgets, f3 theming, f4 vertical tabs+graveyard, f5 workspaces+persistence, f6 EF supports, f7 local-AI sidebar). Next gate is Phase 2: daily-drive it for 30 days.
