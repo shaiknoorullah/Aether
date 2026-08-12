@@ -30,6 +30,10 @@ const DEFAULTS = {
   workspaces: {
     default: "main", // the workspace a fresh profile starts in (containerId 0)
   },
+  boosts: {
+    enabled: true, // master switch: off = no reads, no applies, :zap unavailable
+    dir: "~/.config/aether/boosts", // <domain>.css dotfiles
+  },
   theme: {
     source: "auto", // auto | wal | toml | builtin
     wal_json: "~/.cache/wal/colors.json",

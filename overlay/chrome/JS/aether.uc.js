@@ -72,11 +72,45 @@
     AI_ON_MESSAGE,
     AI_OFF_MESSAGE,
     gatewayErrorMessage,
+    zappedMessage,
+    boostOnMessage,
+    boostOffMessage,
+    noBoostMessage,
+    boostPreviewHeader,
+    boostWrittenMessage,
+    BOOST_DISMISSED_MESSAGE,
+    strippedRuleLine,
+    NOTHING_STRIPPED_MESSAGE,
+    noBoostHereMessage,
+    BOOSTS_OFF_MESSAGE,
+    BOOST_NO_CSS_MESSAGE,
   } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-strings.sys.mjs"
   );
+  const {
+    candidateDomains,
+    boostFileName,
+    createRegistry,
+    resolveBoost,
+    setDomainEnabled,
+    needsRead,
+    zapSelector,
+    zapRule,
+    sanitizeCss,
+  } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-boosts.sys.mjs"
+  );
   const { validateBaseUrl, buildRequest, sseFeed } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-ai-client.sys.mjs"
+  );
+  const {
+    serializeSkeleton,
+    buildBoostPrompt,
+    extractCss,
+    acceptanceGate,
+    generatedHeader,
+  } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-boost-gen.sys.mjs"
   );
   const {
     resolveEnabled,
@@ -130,6 +164,10 @@
       this.aiConversation = newConversation();
       this.aiAbort = null;
       this.aiPromptFocused = false;
+      // b2: at most one boost preview per window, in-memory only —
+      // {phase: sampling|streaming|review, domain, css}. Nothing is ever
+      // auto-applied or auto-written; window close discards it.
+      this.boostPreview = null;
       // Crash safety: a marker left by a session that never ended (crash,
       // kill -9) restores the notification pref on the next startup. A second
       // window opening mid-session is NOT a crash — restoreNotifPref stands
@@ -179,6 +217,14 @@
         ai: () => this.toggleAiSidebar(),
         ai_on: () => this.setAiEnabled(true),
         ai_off: () => this.setAiEnabled(false),
+        zap: () => this.startZap(),
+        boost: () => this.startBoost(),
+        boost_on: () => this.toggleBoost(true),
+        boost_off: () => this.toggleBoost(false),
+        boost_edit: () =>
+          this.editBoost().catch(e =>
+            console.error("[aether] could not open the boost file:", e)
+          ),
         hints: () => this.startHints(),
         insert: () => this.setMode(MODE.INSERT),
         esc: ctx => this.escapeEffects(ctx?.modeBefore),
@@ -195,6 +241,9 @@
       this.buildAiSidebar();
       this.attach();
       this.initWorkspaces();
+      // b1: scan the boosts dir, then cover tabs that navigated before the
+      // scan finished. Never bricks — a broken dir just means no boosts.
+      this.initBoosts().catch(e => console.error("[aether] could not init boosts:", e));
       // Best effort at startup; tabs_toggle retries before every summon (the
       // sidebar-main element upgrades lazily, so the root may not exist yet).
       this.quietSidebar();
@@ -283,6 +332,9 @@
           // Top-level navigations only — an iframe (ad/embed) navigating must
           // never rewrite the tab's persisted url.
           if (!wp.isTopLevel) return;
+          // b1: every top-level location change (re)applies the matching
+          // boost dotfile to that browser's new document.
+          this.applyBoostsFor(browser, loc);
           const tab = win.gBrowser.getTabForBrowser(browser);
           if (tab) this.updateTabRef(tab, { url: loc?.spec });
         },
@@ -339,6 +391,28 @@
       // While it has focus the mode is INSERT (wireAiSidebar + the focus
       // sync), so unreserved keys pass through to it via the engine — and
       // reserved chords stay ours in every mode, prompt focus included.
+      // b2: while a boost preview owns the panel the review bar owns Enter
+      // and Escape — normal mode only, never while another surface has focus.
+      if (
+        this.boostPreview &&
+        this.mode === MODE.NORMAL &&
+        !this.win.gURLBar.focused &&
+        !event.ctrlKey && !event.altKey && !event.metaKey
+      ) {
+        if (key === "Enter" && this.boostPreview.phase === "review") {
+          this.consume(event);
+          this.acceptBoost().catch(e =>
+            console.error("[aether] could not write the boost:", e)
+          );
+          return;
+        }
+        if (key === "Escape") {
+          this.consume(event);
+          this.dismissBoost();
+          return;
+        }
+      }
+
       const modeBefore = this.engine.mode;
       const decision = this.engine.handleKey({
         key,
@@ -459,8 +533,14 @@
       }
     }
 
-    onContentMessage(name, data) {
+    onContentMessage(name, data, bc) {
       switch (name) {
+        case "Aether:BoostReady": {
+          // b1: a new top document is ready — apply its boost (or clear).
+          const browser = bc?.top?.embedderElement;
+          if (browser) this.applyBoostsFor(browser, browser.currentURI);
+          break;
+        }
         case "Aether:Focus":
           this.contentEditableFocused = data.editable;
           if (data.editable && this.mode === MODE.NORMAL) {
@@ -476,6 +556,17 @@
           break;
         case "Aether:HintsDone":
           if (this.mode === MODE.HINT) this.setMode(MODE.NORMAL);
+          if (data?.reason === "picked" && data.descriptor) {
+            this.finishZap(data.descriptor).catch(e =>
+              console.error("[aether] could not write the zap rule:", e)
+            );
+          }
+          break;
+        case "Aether:BoostSampleDone":
+          this.continueBoost(data?.sample).catch(e => {
+            console.error("[aether] could not generate the boost:", e);
+            this.closeBoostPreview();
+          });
           break;
       }
     }
@@ -884,6 +975,368 @@
       }
     }
 
+    // --- site boosts (b1) -----------------------------------------------------
+
+    // Scan the boosts dir into the in-memory registry (session-scoped enable
+    // state lives there, never on disk), then cover already-loaded tabs. The
+    // master switch off means exactly that: no registry, no reads, no applies.
+    async initBoosts() {
+      this.boostsConfig = { ...AetherConfig.DEFAULTS.boosts, ...(this.config.boosts ?? {}) };
+      this.boostRegistry = null;
+      this.boostCache = new Map(); // domain -> {mtime, css} (sanitized)
+      if (!this.boostsConfig.enabled) return;
+      const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
+      this.boostsDir = expandPath(this.boostsConfig.dir, home);
+      let domains = [];
+      try {
+        if (await IOUtils.exists(this.boostsDir)) {
+          domains = (await IOUtils.getChildren(this.boostsDir))
+            .map(p => PathUtils.filename(p))
+            .filter(n => n.endsWith(".css"))
+            .map(n => n.slice(0, -".css".length));
+        }
+      } catch (e) {
+        console.error("[aether] could not scan the boosts dir:", e);
+      }
+      this.boostRegistry = createRegistry(domains);
+      for (const tab of this.win.gBrowser.tabs) {
+        const browser = this.win.gBrowser.getBrowserForTab(tab);
+        if (browser) this.applyBoostsFor(browser, browser.currentURI);
+      }
+    }
+
+    boostPath(domain) {
+      return PathUtils.join(this.boostsDir, boostFileName(domain));
+    }
+
+    // The normalized host of a browser's top document — http(s) only; every
+    // other scheme (about:, chrome:, file:) never gets boosts.
+    boostHostOf(browser) {
+      try {
+        const uri = browser?.currentURI;
+        if (uri?.schemeIs("http") || uri?.schemeIs("https")) return uri.host;
+      } catch {}
+      return "";
+    }
+
+    // The registry match for a host regardless of its session enable state
+    // (resolveBoost hides disabled domains; the toggles need to find them).
+    matchedBoostDomain(host) {
+      return candidateDomains(host).find(d => this.boostRegistry.domains.has(d)) ?? null;
+    }
+
+    // On load / on demand: resolve, read (mtime-cached), sanitize, send. No
+    // match or disabled → clear any previous boost style.
+    applyBoostsFor(browser, uri) {
+      if (!this.boostRegistry) return;
+      let host = "";
+      try {
+        if (uri?.schemeIs("http") || uri?.schemeIs("https")) host = uri.host;
+      } catch {}
+      const domain = host ? resolveBoost(this.boostRegistry, host) : null;
+      if (!domain) {
+        this.sendContentTo(browser, "Aether:BoostClear", {});
+        return;
+      }
+      this.readBoost(domain).then(css => {
+        if (css === null) this.sendContentTo(browser, "Aether:BoostClear", {});
+        else this.sendContentTo(browser, "Aether:BoostApply", { css });
+      }).catch(e => console.error("[aether] could not apply boost:", e));
+    }
+
+    // IOUtils read behind the pure mtime-cache decision; always sanitized —
+    // one sanitizer, every apply.
+    async readBoost(domain) {
+      const path = this.boostPath(domain);
+      try {
+        const { lastModified } = await IOUtils.stat(path);
+        const entry = this.boostCache.get(domain);
+        if (!needsRead(entry, lastModified)) return entry.css;
+        const css = sanitizeCss(await IOUtils.readUTF8(path));
+        this.boostCache.set(domain, { mtime: lastModified, css });
+        return css;
+      } catch {
+        return null; // the file vanished under us — behave as no boost
+      }
+    }
+
+    // :zap — pick mode: the hint machinery with the pick flag (distinct badge
+    // color in the child). Escape cancels via the normal hint path, writes
+    // nothing.
+    startZap() {
+      if (!this.boostRegistry) return;
+      if (!this.boostHostOf(this.win.gBrowser.selectedBrowser)) return;
+      this.setMode(MODE.HINT);
+      this.sendContent("Aether:HintsStart", {
+        chars: this.opt("hint_chars"),
+        pick: true,
+      });
+    }
+
+    // The picked descriptor → selector → dated display:none rule appended to
+    // the resolved boost file (creating <exact-host>.css if none exists) →
+    // re-apply.
+    async finishZap(descriptor) {
+      const browser = this.win.gBrowser.selectedBrowser;
+      const host = this.boostHostOf(browser);
+      if (!this.boostRegistry || !host) return;
+      const selector = zapSelector(descriptor);
+      const date = new Date().toISOString().slice(0, 10);
+      // exact-host fallback goes through candidateDomains so the file name is
+      // the canonical form the resolver walks (bare IPv6 '::1' -> '[::1]')
+      const domain = this.matchedBoostDomain(host) ?? candidateDomains(host)[0];
+      if (!domain) return;
+      await this.ensureBoostFile(domain, date);
+      await IOUtils.writeUTF8(this.boostPath(domain), zapRule(selector, date), {
+        mode: "appendOrCreate",
+      });
+      this.boostCache.delete(domain);
+      this.showMessage(zappedMessage(selector));
+      this.applyBoostsFor(browser, browser.currentURI);
+    }
+
+    // :boost_on / :boost_off — session-scoped registry state; matching tabs in
+    // this window re-apply (or clear) immediately. No file → neutral copy.
+    toggleBoost(on) {
+      if (!this.boostRegistry) return;
+      const host = this.boostHostOf(this.win.gBrowser.selectedBrowser);
+      if (!host) return;
+      const domain = this.matchedBoostDomain(host);
+      if (!domain) {
+        this.showMessage(noBoostMessage(host));
+        return;
+      }
+      setDomainEnabled(this.boostRegistry, domain, on);
+      this.showMessage(on ? boostOnMessage(domain) : boostOffMessage(domain));
+      for (const tab of this.win.gBrowser.tabs) {
+        const browser = this.win.gBrowser.getBrowserForTab(tab);
+        const h = this.boostHostOf(browser);
+        if (h && candidateDomains(h).includes(domain)) {
+          this.applyBoostsFor(browser, browser.currentURI);
+        }
+      }
+    }
+
+    // :boost_edit — open the resolved dotfile as file:// in a new tab (the
+    // cheap viewer; real editing happens in vim, a reload picks up the mtime).
+    // No file yet → create it with a dated header so the path exists to open.
+    async editBoost() {
+      if (!this.boostRegistry) return;
+      const host = this.boostHostOf(this.win.gBrowser.selectedBrowser);
+      if (!host) return;
+      const domain = this.matchedBoostDomain(host) ?? candidateDomains(host)[0];
+      if (!domain) return;
+      await this.ensureBoostFile(domain, new Date().toISOString().slice(0, 10));
+      this.newTab();
+      this.navigate(PathUtils.toFileURI(this.boostPath(domain)));
+    }
+
+    async ensureBoostFile(domain, date) {
+      await IOUtils.makeDirectory(this.boostsDir, {
+        ignoreExisting: true,
+        createAncestors: true,
+      });
+      const path = this.boostPath(domain);
+      if (!(await IOUtils.exists(path))) {
+        await IOUtils.writeUTF8(path, `/* aether boost: ${domain} — created ${date} */\n`);
+      }
+      this.boostRegistry.domains.add(domain);
+    }
+
+    // --- AI CSS boosts (b2) ---------------------------------------------------
+
+    // :boost — one-shot generation into a review-gated preview. Preconditions
+    // in spec order: scheme, [boosts] enabled, the f7 kill switch (assertOn —
+    // the same off-state, and zero requests while off).
+    startBoost() {
+      if (this.boostPreview || this.aiAbort) return; // one at a time
+      const browser = this.win.gBrowser.selectedBrowser;
+      let scheme = "";
+      try {
+        scheme = browser?.currentURI?.scheme ?? "";
+      } catch {}
+      if (scheme !== "http" && scheme !== "https") {
+        this.showMessage(noBoostHereMessage(scheme || "this"));
+        return;
+      }
+      if (!this.boostsConfig?.enabled || !this.boostRegistry) {
+        this.showMessage(BOOSTS_OFF_MESSAGE);
+        return;
+      }
+      try {
+        assertOn(this.aiState); // hard: no route to the socket while off
+      } catch {
+        this.showAiSidebarPanel(); // the exact f7 off-state
+        return;
+      }
+      if (!this.aiUsable()) {
+        this.showAiSidebarPanel(); // same calm shape, names the gateway
+        return;
+      }
+      const host = this.boostHostOf(browser);
+      const domain = this.matchedBoostDomain(host) ?? candidateDomains(host)[0];
+      if (!domain) return;
+      this.boostPreview = { phase: "sampling", domain };
+      this.openBoostPreviewPanel(domain);
+      this.sendContentTo(browser, "Aether:BoostSample", {});
+    }
+
+    // Open the sidebar without stealing focus into the prompt (unlike :ai).
+    showAiSidebarPanel() {
+      const box = this.aiSidebarEl;
+      if (!box) return;
+      if (box.hidden) {
+        box.hidden = false;
+        this.wireAiSidebar();
+        this.applyAiTheme();
+      }
+      this.renderAiPanel();
+    }
+
+    // The f7 sidebar surface with the b2 preview dressing: distinct header,
+    // prompt input replaced by the review bar.
+    openBoostPreviewPanel(domain) {
+      this.showAiSidebarPanel();
+      const doc = this.aiDoc();
+      const header = doc?.getElementById("aether-boost-header");
+      if (header) {
+        header.textContent = boostPreviewHeader(domain);
+        header.hidden = false;
+      }
+      const review = doc?.getElementById("aether-boost-review");
+      if (review) review.hidden = false;
+      const input = doc?.getElementById("aether-ai-input");
+      if (input) input.hidden = true;
+    }
+
+    // The child's structural sample arrived: serialize (whitelist enforced
+    // again in pure code), build the prompt with the active palette, stream
+    // the one-shot request through the f7 path into the preview.
+    async continueBoost(sample) {
+      const p = this.boostPreview;
+      if (!p || p.phase !== "sampling") return;
+      try {
+        assertOn(this.aiState); // the switch may have flipped mid-round-trip
+      } catch {
+        this.closeBoostPreview();
+        return;
+      }
+      const skeleton = serializeSkeleton(sample);
+      const prompt = buildBoostPrompt(skeleton, this.themePalette ?? {});
+      const { url, init } = buildRequest(this.aiConfig, [
+        { role: "user", content: prompt },
+      ]);
+      p.phase = "streaming";
+      const turnEl = this.appendAiTurn("assistant", "");
+      const ctrl = new AbortController();
+      this.aiAbort = ctrl; // :ai_off aborts a boost stream too — same hard switch
+      let reply = "";
+      try {
+        const resp = await this.win.fetch(url, { ...init, signal: ctrl.signal });
+        if (!resp.ok) throw new Error(`gateway status ${resp.status}`);
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let done = false;
+        while (!done) {
+          const { value, done: eof } = await reader.read();
+          if (eof) break;
+          const r = sseFeed(buffer, decoder.decode(value, { stream: true }));
+          buffer = r.buffer;
+          for (const d of r.deltas) {
+            reply += d;
+            if (turnEl) turnEl.textContent += d; // text, never markup
+          }
+          done = r.done;
+        }
+      } catch (e) {
+        // An abort is the user's own hand (Esc or :ai_off) — no extra copy.
+        if (e?.name !== "AbortError") {
+          this.appendAiTurn("note", gatewayErrorMessage(this.aiConfig.base_url));
+        }
+        this.closeBoostPreview();
+        return;
+      } finally {
+        if (this.aiAbort === ctrl) this.aiAbort = null;
+      }
+      this.finishBoostStream(reply);
+    }
+
+    // Stream done: extract the single fenced block, run the acceptance gate,
+    // show the strip summary. Nothing is applied at any point during preview.
+    finishBoostStream(reply) {
+      const p = this.boostPreview;
+      if (!p || p.phase !== "streaming") return;
+      const raw = extractCss(reply);
+      if (raw === null) {
+        this.appendAiTurn("note", BOOST_NO_CSS_MESSAGE);
+        this.closeBoostPreview();
+        return;
+      }
+      const gate = acceptanceGate(raw);
+      if (!gate.ok) {
+        this.appendAiTurn("note", gate.reason);
+        this.closeBoostPreview();
+        return;
+      }
+      p.phase = "review";
+      p.css = gate.css;
+      if (gate.removedRules.length) {
+        for (const rule of gate.removedRules) {
+          this.appendAiTurn("note", strippedRuleLine(rule));
+        }
+      } else {
+        this.appendAiTurn("note", NOTHING_STRIPPED_MESSAGE);
+      }
+    }
+
+    // Enter on the review: append the dated block through the b1 store
+    // (append, never overwrite — hand-written rules stay untouched),
+    // invalidate the mtime cache, re-apply through the b1 path (the sanitizer
+    // runs again there — one trust path, belt and suspenders).
+    async acceptBoost() {
+      const p = this.boostPreview;
+      if (!p || p.phase !== "review") return;
+      const date = new Date().toISOString().slice(0, 10);
+      await this.ensureBoostFile(p.domain, date);
+      await IOUtils.writeUTF8(
+        this.boostPath(p.domain),
+        `${generatedHeader(p.domain, date)}\n${p.css}\n`,
+        { mode: "appendOrCreate" }
+      );
+      this.boostCache.delete(p.domain);
+      this.closeBoostPreview();
+      this.showMessage(boostWrittenMessage(p.domain));
+      const browser = this.win.gBrowser.selectedBrowser;
+      this.applyBoostsFor(browser, browser.currentURI);
+    }
+
+    // Esc: discard everything — a normal outcome, not an error. Mid-stream it
+    // also pulls the abort handle.
+    dismissBoost() {
+      const p = this.boostPreview;
+      if (!p) return;
+      if (p.phase === "streaming" && this.aiAbort) {
+        this.aiAbort.abort();
+        this.aiAbort = null;
+      }
+      this.closeBoostPreview();
+      this.showMessage(BOOST_DISMISSED_MESSAGE);
+    }
+
+    // Take the preview dressing down and give the panel back to f7.
+    closeBoostPreview() {
+      this.boostPreview = null;
+      const doc = this.aiDoc();
+      const header = doc?.getElementById("aether-boost-header");
+      if (header) header.hidden = true;
+      const review = doc?.getElementById("aether-boost-review");
+      if (review) review.hidden = true;
+      const input = doc?.getElementById("aether-ai-input");
+      if (input) input.hidden = false;
+      this.renderAiPanel();
+    }
+
     // --- local AI sidebar (f7) ------------------------------------------------
 
     // A chrome-owned right-side panel: XUL <browser> loading the static
@@ -1270,6 +1723,7 @@
       }
       style.textContent = emitCss(palette);
       this.themeCssText = style.textContent;
+      this.themePalette = palette; // b2: the prompt carries the same palette
       this.applyAiTheme(); // the sidebar page mirrors the same palette
       return sourceUsed;
     }
@@ -1277,8 +1731,12 @@
     // --- browser plumbing ---------------------------------------------------
 
     sendContent(name, data) {
+      this.sendContentTo(this.win.gBrowser.selectedBrowser, name, data);
+    }
+
+    sendContentTo(browser, name, data) {
       try {
-        this.win.gBrowser.selectedBrowser.browsingContext
+        browser.browsingContext
           ?.currentWindowGlobal?.getActor("AetherContent")
           ?.sendAsyncMessage(name, data);
       } catch (e) {

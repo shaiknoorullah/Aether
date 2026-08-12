@@ -43,6 +43,18 @@ cap = 500 # ring size; oldest entries fall off past this
 [workspaces]
 default = "main" # the workspace a fresh profile starts in (no container)
 
+# Site boosts: per-domain CSS dotfiles, applied to matching sites on load.
+# <domain>.css matches the exact host first, then parent domains down to two
+# labels (no PSL — a co.uk-class false parent is handled by an exact-host
+# file). :zap hint-picks an element to hide (appends to the dotfile),
+# :boost_on / :boost_off toggle for the session, :boost_edit opens the file.
+# CSS is sanitized on apply: the known CSS fetch vectors — @import, non-data:
+# url(), non-data: image-set() sources — are stripped after CSS-escape
+# decoding, so a synced dotfile gets no known network-fetch channel.
+[boosts]
+enabled = true
+dir = "~/.config/aether/boosts"
+
 # Theming: pywal/base16 ingestion. wal colors.json (if readable and valid)
 # wins under "auto", then [theme.colors], then the builtin gruvbox. A broken
 # palette file never bricks the chrome — it just falls back. Reload with
@@ -77,7 +89,7 @@ color15 = "#ebdbb2"
 # Commands: scroll_down scroll_up half_down half_up top bottom back forward
 # open open_tab tab tab_new tab_close tab_next tab_prev tabs_toggle reload
 # hints insert esc palette theme_reload graveyard ws ws_next ws_rename
-# focus done ai ai_on ai_off
+# focus done ai ai_on ai_off zap boost_on boost_off boost_edit
 [keymap.normal]
 "a" = "ai"
 "j" = "scroll_down"

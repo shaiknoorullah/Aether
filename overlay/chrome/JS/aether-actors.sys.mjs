@@ -15,6 +15,9 @@ export function ensureActors() {
         events: {
           focusin: {},
           focusout: {},
+          // b1: each new top document announces itself so its boost CSS is
+          // applied without racing the progress listener.
+          DOMContentLoaded: {},
         },
       },
       allFrames: true,

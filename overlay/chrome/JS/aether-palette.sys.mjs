@@ -10,6 +10,10 @@ export const REGISTRY = {
   ai_off: {}, // kill switch off — hard: aborts any in-flight request
   ai_on: {}, // kill switch on, persisted over the TOML value
   back: {},
+  boost: {}, // b2: generate an AI CSS reskin into a review-gated preview
+  boost_edit: {}, // open the domain's boost dotfile in a new tab
+  boost_off: {}, // disable the domain's boost for this session
+  boost_on: {}, // re-enable the domain's boost
   bottom: {},
   done: {}, // ends the focus session; no session → neutral copy, nothing else
   esc: {},
@@ -37,6 +41,7 @@ export const REGISTRY = {
   ws: { min: 1, usage: "ws <name>" }, // switch-or-create a workspace
   ws_next: {},
   ws_rename: { min: 1, usage: "ws_rename <name>" },
+  zap: {}, // hint-pick an element to hide into the domain's boost dotfile
 };
 
 // The exact statusbar copy for an unknown command — neutral, non-shaming.
