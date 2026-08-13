@@ -6,6 +6,7 @@
 // module is.
 
 import { deserialize, serialize, setContainer } from "./aether-workspaces.sys.mjs";
+import { pruneContexts } from "./aether-resurrect.sys.mjs";
 
 const FILE_NAME = "aether-workspaces.json";
 
@@ -22,6 +23,7 @@ export const AetherWorkspaces = {
   restored: false,
   _initPromise: null,
   _writeChain: Promise.resolve(),
+  _persistTimer: null,
 
   // Read the profile file once at process start; idempotent across windows
   // (first caller's defaultName wins). Missing/corrupt file → fresh default
@@ -39,6 +41,9 @@ export const AetherWorkspaces = {
       console.info("[aether] workspaces file unreadable, starting fresh:", e);
     }
     this.model = deserialize(text, defaultName);
+    // b3: age out 30-day-old context records and drop drifted/orphaned ones —
+    // the pure module can't reach Date.now, so the clock is injected here.
+    pruneContexts(this.model, Date.now());
     return this.model;
   },
 
@@ -74,5 +79,19 @@ export const AetherWorkspaces = {
     this._writeChain = this._writeChain
       .then(() => IOUtils.writeUTF8(path, text, { tmpPath: `${path}.tmp` }))
       .catch(e => console.error("[aether] could not write workspaces:", e));
+  },
+
+  // b3: trailing 1 s coalesce over persist() — scroll samples arrive up to
+  // 1/s per tab and must not chain a write each. The timer fires once with
+  // whatever the model holds by then; persist() itself stays the only writer.
+  persistSoon() {
+    if (this._persistTimer) return;
+    const { setTimeout } = ChromeUtils.importESModule(
+      "resource://gre/modules/Timer.sys.mjs"
+    );
+    this._persistTimer = setTimeout(() => {
+      this._persistTimer = null;
+      this.persist();
+    }, 1000);
   },
 };

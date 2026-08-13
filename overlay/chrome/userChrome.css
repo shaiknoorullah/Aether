@@ -127,6 +127,12 @@
   background-color: var(--aether-color3, #d79921);
   color: var(--aether-bg, #1d2021);
 }
+/* :zap pick mode: same machinery, unmistakably different badge (red slot —
+   picking writes to a dotfile, so it should not look like ordinary hinting). */
+#aether-statusbar[data-pick="1"][data-mode="hint"] .aether-mode {
+  background-color: var(--aether-color1, #cc241d);
+  color: var(--aether-bg, #1d2021);
+}
 #aether-statusbar[data-mode="palette"] .aether-mode {
   background-color: var(--aether-color5, #b16286);
   color: var(--aether-bg, #1d2021);

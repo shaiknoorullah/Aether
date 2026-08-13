@@ -65,11 +65,28 @@
     #aether-ai-input:disabled {
       opacity: 0.5;
     }
+    /* b2: the boost preview's distinct header and its review bar — hidden
+       except while a :boost preview owns the panel. */
+    #aether-boost-header {
+      margin: 0;
+      padding: 6px 8px;
+      font-weight: bold;
+      color: var(--aether-accent, #458588);
+      border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    }
+    #aether-boost-review {
+      margin: 0;
+      padding: 6px 8px;
+      color: var(--aether-accent, #458588);
+      border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    }
   </style>
 </head>
 <body>
+  <header id="aether-boost-header" hidden></header>
   <main id="aether-ai-transcript"></main>
   <p id="aether-ai-off" hidden></p>
+  <div id="aether-boost-review" hidden>enter accepts &#183; esc dismisses</div>
   <input id="aether-ai-input" type="text">
 </body>
 </html>
