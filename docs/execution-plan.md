@@ -91,26 +91,28 @@ The glue refactor rides along: anything touched comes out of `aether.uc.js` into
 | `x3` | Fuzzy matching + frecency — a documented v1.0.0 cut, reversed on logged evidence |
 | `x4` | The GitHub mod — the reference consumer that proves the API before it freezes |
 
-### v1.4.0 — Panel Sources *(committed scope; specs at approach)*
+### v1.4.0 — Panel Sources *(specs written)*
 
-Bookmarks (flat, tags only, no hierarchy), history, and downloads as sources on r4's primitive. Marks and pins generalized across sources. Nothing here needs new UI — that is the return on building the primitive first.
+`p1` bookmarks (flat, tags only, zero-decision capture) · `p2` history (a search surface over Places, workspace-attributed) · `p3` downloads (a widget that exists only while transfers do). All sources on r4's primitive — nothing here needs new UI, which is the return on building the primitive first.
 
-### v2.0.0 — `aetherd` *(committed scope; specs after a daemon spike)*
+### v2.0.0 — `aetherd` *(specs written)*
 
 A local Rust daemon speaking one loopback API. Integration weight lives here, off the rebase treadmill, and the overlay's loopback-only network rule (f7) never has to bend.
 
-- **MPRIS media** first — now-playing widget, mini-player panel, unified control across browser tabs / Spotify / self-hosted, plus a PipeWire-tapped visualizer. Smallest adapter, harmless failure modes, proves the whole architecture end to end.
-- **Rules engine + auto-registration** — the browser as sensor for taskwarrior/timewarrior: URL pattern + dwell + focus-session context → a task record for the interstitial work I never log.
-- **Time-data enrichment** — the browser's ground truth (url, title, workspace, focus task) fixes ActivityWatch's largest blind spot *before* any model is involved. AI fills only what rules can't reach, and **measured and inferred never mix**: two tiers, confidence on every inferred span, reports stating what fraction was reconstructed.
-- **VPS surfaces** (powerhouse, gnosis) — daemon holds the credentials.
-- **Per-workspace proxy** — workspace switch changes network identity along with cookies. Needs a spike on `nsIProtocolProxyService` channel filters before it is promised.
-- **Encryption at rest** — reuse decision #3's Yjs E2EE pattern; keys in the daemon, never in chrome.
+- `d1` **foundation** — HTTP+WS on loopback, bearer token, and the rule that does the real work: any request carrying an `Origin` header is rejected before authentication, which kills drive-by-localhost and DNS rebinding by failing closed.
+- `d2` **MPRIS media** first — now-playing widget, mini-player, unified control across browser tabs / Spotify / self-hosted, plus a PipeWire-tapped visualizer. Smallest adapter, harmless failure modes, proves the architecture end to end.
+- `d3` **rules engine + auto-registration** — the browser as sensor for taskwarrior/timewarrior: URL glob + dwell + focus-session context → a completed task record for the interstitial work I never log. Deterministic; no AI.
+- `d4` **time-data enrichment** — the browser's ground truth (url, title, workspace, focus task) fixes ActivityWatch's largest blind spot *before* any model is involved. AI fills only what rules can't reach, and **measured and inferred never mix**.
+- `d5` **remote surfaces** (powerhouse, gnosis) — daemon holds the credentials; written against stated assumptions until I can read those repos.
+- `d6` **per-workspace network identity** — workspace switch changes egress along with cookies. Spike-gated on `nsIProtocolProxyService`, and **fails closed**: a dead proxy blocks requests rather than leaking to direct.
+- `d7` **encryption at rest** — decision #3's envelope pattern; keys in the daemon; a locked store is unreadable, never silently recreated empty.
 
-### v2.1.0 — The Agent *(committed scope; specs after v1.3 lands)*
+### v2.1.0 — The Agent *(specs written)*
 
 **The registry is the API.** Everything I can do is a registry command, so the agent's tool list is a projection of the registry rather than a parallel surface that drifts. MCP serializes it; page interaction reuses the hint descriptor pipeline; one dispatcher means one complete action log.
 
-- Capability tiers as `risk` annotations on registry entries (already added in x1), with policy as data in `[agent.consent]`.
+- `a1` control plane · `a2` page perception and action · `a3` the focus nudge.
+- Capability tiers as `risk` annotations on registry entries (already added in x1), with policy as data in `[agent.consent]` — and a declared risk is a **ceiling, not a grant**: non-builtin commands are floored at `mutate-local` so a mod's self-description can't become a privilege escalation.
 - **Plan-as-workflow, not a live loop** — the model proposes, I approve, a deterministic script executes. A poisoned page can corrupt a plan I am about to read; it cannot silently act.
 - **Taint tracking** — page content entering context flips a per-conversation flag; tainted sessions escalate consent even for auto-classed commands. The only mechanism that maps to the real threat: *this instruction may not have come from me.*
 - **The focus nudge** — armed only inside an explicit `:focus` session, drift-triggered not timer-triggered, one dismissible offer, never escalating, never counted, lexicon-swept. Hyperfocus is not deviation.

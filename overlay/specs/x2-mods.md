@@ -49,9 +49,15 @@ enabled = ["github", "gmail-minimal"]
 
 Presence on disk does nothing; the enable list is the act of trust, it lives in the dotfile I own, and it is greppable. Every command a mod defines **must** be `<namespace>:<name>` — enforced at load, so a mod can never define bare `zap` or shadow a builtin (x1 already rejects collisions; namespacing makes them structurally impossible). Suggested bindings from `keys.toml` are **displayed, never applied** — `:mod_keys <name>` prints them for pasting into my keymap. A mod that could bind keys silently is a mod that could capture keystrokes.
 
+**Namespaces are globally unique.** Two enabled mods declaring `git` is a load error naming both — the second is refused, not silently merged. Without this, `git:open` resolves to whichever mod loaded last and the failure is invisible. A namespace is also reserved while its mod is enabled, so disabling one and enabling another is the supported way to swap implementations.
+
+**Domain matching is exact-or-declared, not b1's suffix walk.** `match = ["github.com"]` styles `github.com` only; `gist.github.com` requires its own entry (or an explicit `"*.github.com"`, which *is* supported here because the mod author declares intent, unlike b1 where the walk is a fallback heuristic). A mod silently styling every subdomain of a large host is how a mod breaks a site the author never tested.
+
+**Style precedence**: mod styles apply first, then the user's own `boosts/<domain>.css`. My hand-written dotfile always wins over a mod's stylesheet, and `:zap` always appends to my file, never to a mod's. A mod I installed must never be able to out-specify a rule I wrote.
+
 ### Lifecycle
 
-Load order is `[mods] enabled` order, after user scripts. A mod that fails to load is skipped with one named line and never partially registers — if `commands.js` throws at import, its style is not applied either, because a half-loaded mod is an unpredictable one. `:mods` lists installed mods, tier, enabled state, command count, and load errors. r1's reload re-imports mods with the same rules.
+Load order is `[mods] enabled` order, after user scripts. A mod that fails to load is skipped with one named line and never partially registers — if `commands.js` throws at import, its style is not applied either, because a half-loaded mod is an unpredictable one. Reload uses x1's ledger: everything a mod owns is revoked before re-import, and the swap is transactional, so a mod that breaks on reload leaves its working version live. `:mods` lists installed mods, tier, enabled state, namespace, command count, and load errors.
 
 New registry commands: `mods`, `mod_install`, `mod_enable`, `mod_disable`, `mod_keys` — `mod_install`/`mod_enable` carry `risk = "dangerous"` (x1's annotation), which is what will make v2.1's agent policy refuse them by default.
 
@@ -77,6 +83,11 @@ New registry commands: `mods`, `mod_install`, `mod_enable`, `mod_disable`, `mod_
 10. a mod whose `commands.js` throws at import registers no commands **and no style**
 11. `mod_install` acceptance logic: a fetched bundle declaring `tier = "code"` is refused; declaring `style` with no JS is accepted; declaring `style` with JS present is refused
 12. manifest parsing is prototype-pollution safe (`__proto__`/`constructor` keys inert — the TOML parser's existing guard, re-asserted at this entry point)
+13. two enabled mods declaring the same namespace → the second is refused and both are named; the first mod's commands are unaffected
+14. domain matching is exact: `match = ["github.com"]` does **not** match `gist.github.com` or `github.com.evil.tld`; `"*.github.com"` matches the subdomain and not the bare host (both directions asserted, because this is the rule that differs from b1)
+15. style precedence: with both a mod style and a user boost file for one domain, the user file is applied last; a `:zap` on that domain appends to the **user** file even when the mod's rule is what's being overridden
+16. reload revokes a mod's registrations before re-import (x1 ledger integration): a mod reloaded three times contributes one hook, not three
+17. a mod that fails on reload leaves its previously working registration intact (transactional swap, asserted from the mod side)
 
 `overlay/test/unit/x2-config.test.mjs`:
 13. config sync guard for `DEFAULTS.mods`; all five commands in REGISTRY with descriptions and correct `risk` classes

@@ -17,10 +17,10 @@ Last updated 2026-08-14.
 | v1.0.0 | Spike + the seven floor items | **Complete** — 2026-07-18 |
 | v1.1.0 | Site boosts, AI CSS boosts, context resurrection | **Complete** — 2026-08-12 |
 | v1.2.0 | The rice pass | Specs written, not started |
-| v1.3.0 | The extension pass | Specs written, not started |
-| v1.4.0 | Panel sources | Committed scope, specs at approach |
-| v2.0.0 | `aetherd` and integrations | Committed scope, specs after the daemon spike |
-| v2.1.0 | The agent | Committed scope, specs after v1.3 lands |
+| v1.3.0 | The extension pass | Specs written (design-reviewed), not started |
+| v1.4.0 | Panel sources | Specs written, not started |
+| v2.0.0 | `aetherd` and integrations | Specs written, not started |
+| v2.1.0 | The agent | Specs written, not started |
 
 Phase 2 (the 30-day daily-drive gate) runs underneath all of it, from 2026-08-14. Its output is `docs/friction-log.md`, and that log — not this matrix — decides what v1.4.0 actually contains.
 
@@ -68,26 +68,58 @@ Riding along: extract from `aether.uc.js` (2,009 lines) as each area is touched.
 | `x3` | Fuzzy + frecency | **Reverses a v1.0.0 cut** on logged evidence (friction-log, day 1) |
 | `x4` | GitHub mod | The reference consumer that finds the API's flaws before it freezes |
 
-## v1.4.0 — Panel Sources *(committed scope)*
+## v1.4.0 — Panel Sources
 
-Bookmarks (flat + tags, no hierarchy), history, downloads — all sources on r4's primitive. Marks and pins generalized. Specs written at approach; the friction log ranks them.
+| Spec | Feature | Why now |
+|---|---|---|
+| `p1` | Bookmarks — flat, tagged, zero-decision capture | Folders force a decision at capture time, which is the decision I defer |
+| `p2` | History — a search surface over Places, workspace-attributed | If finding a closed tab is easy, tabs stop being memory |
+| `p3` | Downloads — widget that appears only when active, panel source | Transfers are currently invisible |
 
-## v2.0.0 — `aetherd` *(committed scope)*
+## v2.0.0 — `aetherd`
 
-Local Rust daemon, one loopback API, integration weight off the rebase treadmill.
+Local Rust daemon, one loopback API, integration weight off the rebase treadmill. Ordered so the cheapest adapter proves the architecture first.
 
-| Track | Notes |
-|---|---|
-| MPRIS media + visualizer | First. Smallest adapter, harmless failures, proves the architecture |
-| Rules engine + auto-registration | Browser as sensor for taskwarrior/timewarrior |
-| Time-data enrichment | Ground truth first, AI second; measured and inferred never mix |
-| VPS surfaces (powerhouse, gnosis) | Daemon holds credentials — blocked on knowing what they expose |
-| Per-workspace proxy | Blocked on an `nsIProtocolProxyService` spike |
-| Encryption at rest | Decision #3's Yjs E2EE pattern; keys in the daemon |
+| Spec | Feature | Notes |
+|---|---|---|
+| `d1` | Daemon foundation — transport, token auth, adapters, capabilities | Origin-header rejection is the rule that kills drive-by-localhost |
+| `d2` | Media — MPRIS control, mini-player, PipeWire visualizer | First. MPRIS *is* the backend-agnosticism; no per-service control adapters, ever |
+| `d3` | Rules engine + auto-registration | Deterministic; no AI. Browser as sensor for taskwarrior/timewarrior |
+| `d4` | Time-data enrichment | Ground truth first, AI second; measured and inferred never mix |
+| `d5` | Remote surfaces (powerhouse, gnosis) | **Assumption-based** — the repos are private; see the spec's open-input block |
+| `d6` | Per-workspace network identity | **Spike-gated** on `nsIProtocolProxyService` channel filters; fails closed, never to direct |
+| `d7` | Encryption at rest | Decision #3's envelope pattern; keys in the daemon, never in chrome |
 
-## v2.1.0 — The Agent *(committed scope)*
+## v2.1.0 — The Agent
 
-Registry-as-API, `risk`-class consent policy, plan-as-workflow execution, taint tracking, complete action log, and the focus-session nudge. Prompt injection assumed unsolved.
+| Spec | Feature | Notes |
+|---|---|---|
+| `a1` | Control plane — registry-as-API, consent policy, taint, action log | Plan-as-workflow, not a live loop |
+| `a2` | Page perception + action | Two capabilities, separate switches; cross-origin action always confirms |
+| `a3` | The focus nudge | One offer per session; counting is structurally impossible, not merely discouraged |
+
+Prompt injection assumed unsolved throughout.
+
+---
+
+## Design review log
+
+Specs are written in one pass by one perspective, which is not the same as being right. Reviews recorded here.
+
+**x1 + x2 (facade, hooks, mods) — stress-tested 2026-08-14.** Eight defects found and fixed in the specs before any code was written:
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | `aether.hints.score = fn` — an assignment to a **frozen** object; would throw in strict mode. Direct contradiction inside the spec | Everything is a registration call (`setScorer`), which also gives every hook an owner |
+| 2 | Hot reload re-imported modules without deregistering — hooks accumulate, so after three reloads `open-link` fires three times and it reads like a browser bug | Registration ledger keyed by owning file; revoke-then-reimport |
+| 3 | Reload was non-transactional: a file failing on re-import left a half-loaded registry | Build off to the side, swap only on full success, keep the working version on failure |
+| 4 | Hook `next` could be called twice → double navigation | `next` is call-once; a second call is ignored and reported |
+| 5 | Async hooks unspecified — navigation would either race or hang | Sync decision only; promise-returning hooks rejected at registration |
+| 6 | A slow hook was uncontained (only throwing was) — a 200ms scorer makes hints unusable without ever erroring | Per-call time budget, latch off after two exceedances |
+| 7 | Self-declared `risk` was trusted → a mod labelling a destructive command `read` gets it auto-run by the agent | `riskFloor`: non-builtin commands floored at `mutate-local`; a declaration may restrict, never widen |
+| 8 | Two mods could claim one namespace; mod style vs user boost precedence undefined; mod domain matching inherited b1's suffix walk | Namespaces globally unique and reserved; user dotfile always wins over mod style; exact-or-declared matching |
+
+Not yet reviewed: r1–r5, p1–p3, d1–d7, a1–a3.
 
 ---
 
