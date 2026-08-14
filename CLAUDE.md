@@ -4,7 +4,7 @@
 
 Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **This is not a startup. Not a product. I will never monetize it.** If other people adopt it the way Zen or LibreWolf got adopted, cool; if nobody ever installs it but me, it still succeeded.
 
-Honest status: I've produced ~50 research documents and zero lines of browser code. The research phase is over. Next milestone: the spike.
+Honest status: **v1.1.0 is built and working** — the full adoption floor (modal keys+palette, statusbar widgets, pywal theming, vertical tabs+graveyard, workspaces+persistence, EF supports, local-AI sidebar) plus site boosts (`:zap`, AI `:boost`) and context resurrection. ~5,100 runtime-path lines, 322 unit tests, screenshot-verified visual suite, zero deps/build/patches. Current milestone: the 30-day daily-drive gate (`docs/execution-plan.md` Phase 2).
 
 ## Rules I Hold Myself To
 
@@ -59,10 +59,10 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Next
 
-1. **The spike.** Thin Gecko overlay proving zero-chrome + modal keyboard interception (the Zen/LibreWolf pattern). Then I daily-drive it. The engine decision gets validated by use, not by another document.
-2. Grow the overlay feature-by-feature from my actual workflow — keybindings → blocking → workspaces → local-AI bridge → agent runtime — each one gated by the maintenance budget.
+1. **The daily-drive gate** (Phase 2): 30 days as my default browser, friction log, one line per annoyance. Every entry becomes a fix, a cut, or evidence for what ships next.
+2. Post-gate, in this order: agent runtime (decision #2 control plane), deeper personalized-web tiers, sync (resolving Iroh vs js-libp2p then, not before).
 3. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
-4. Iroh vs js-libp2p: decided when sync gets built, not before.
+4. Monthly rebase drill: re-run `overlay/install.sh` after each Firefox update (pacman hook), log the cost.
 
 ## Tools & Infrastructure
 
