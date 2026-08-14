@@ -101,3 +101,86 @@ export const BOOSTS_STARTING_MESSAGE =
 
 // The reply carried no single fenced CSS block — one calm line, nothing else.
 export const BOOST_NO_CSS_MESSAGE = "no single css block in the reply";
+
+// --- r1: live config reload copy ---------------------------------------------
+// Every export below takes ONE pre-joined string (never an array), because the
+// f6 harness calls each export as fn(task, "34m") and asserts the result is a
+// non-empty, lexicon-clean string that echoes its first argument.
+
+// What a reload actually re-applied: reloadedMessage("theme, keymap").
+export function reloadedMessage(domains) {
+  return `reloaded: ${domains}`;
+}
+
+// A reload that changed nothing is a normal outcome, not an error.
+export const RELOAD_NO_CHANGE_MESSAGE = "reloaded: nothing changed";
+
+// The domains a reload cannot reach — named, never silently dropped. The glue
+// appends this after reloadedMessage: "reloaded: theme — restart for: …".
+export function restartRequiredMessage(paths) {
+  return `restart for: ${paths}`;
+}
+
+// A config file that did not parse: the live config stays live, and the line is
+// named so it can be fixed. A typo is not a failing grade — just a line number.
+export function configUnchangedMessage(line) {
+  return `config unchanged: line ${line}`;
+}
+
+// --- r2: style layer copy ----------------------------------------------------
+
+// Per-key validation: the named keys fell back to their defaults, everything
+// else applied. One calm line, the keys pre-joined by the caller.
+export function styleRejectedMessage(keys) {
+  return `style: ${keys} ignored`;
+}
+
+// --- r3/r4: which-key and panel copy -----------------------------------------
+
+// The truncation row under a capped list: "+7 more".
+export function moreRow(count) {
+  return `+${count} more`;
+}
+
+// A panel source with nothing in it — neutral, no urging.
+export const PANEL_EMPTY_MESSAGE = "nothing to list here";
+
+// Rows can change under an open panel. Marks resolve by row key, so a mark
+// whose row is gone is dropped and counted — never retargeted at a neighbour.
+export function droppedMarksMessage(count) {
+  return `marks dropped: ${count}`;
+}
+
+// Confirmation for m<char>, and the neutral answer when '<char> has no tab.
+export function markSetMessage(char) {
+  return `mark: ${char}`;
+}
+
+export function noMarkMessage(char) {
+  return `no mark: ${char}`;
+}
+
+// --- r5: settings panel copy -------------------------------------------------
+
+// A value written to the panel-owned local file, and one reset back to the
+// dotfile (or the builtin default).
+export function settingSavedMessage(path) {
+  return `saved: ${path}`;
+}
+
+export function settingResetMessage(path) {
+  return `reset: ${path}`;
+}
+
+// A value the loader would not accept is refused before it is written, so the
+// panel can never author a config that does not load.
+export function settingRejectedMessage(key) {
+  return `not applied: ${key}`;
+}
+
+// The generated header of aether.local.toml. Deleting the file is the undo, and
+// the file says so itself.
+export const LOCAL_CONFIG_HEADER =
+  "# aether.local.toml — written by :settings, machine-local.\n" +
+  "# aether.toml is yours and is never written by Aether. This file layers on\n" +
+  "# top of it. Delete it to go back to the dotfile.\n";

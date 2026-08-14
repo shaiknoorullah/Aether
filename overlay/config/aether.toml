@@ -8,6 +8,8 @@ hint_chars = "asdfghjkl" # home row labels
 statusbar_clock = true   # legacy: false drops the clock widget from the bar
 pending_timeout_ms = 800 # multi-key sequence window
 palette_max_items = 8    # completions rendered at once
+config_watch = true      # saving this file is the reload; false = :config_reload only
+which_key_ms = 400       # pause before the binding panel appears; 0 = instant, -1 = never
 
 # Statusbar slots, rendered left to right in this order. Builtins: mode,
 # workspace, focus, url, msg, tabs, ai, clock, date. Unknown ids are skipped
@@ -89,6 +91,44 @@ color13 = "#d3869b"
 color14 = "#8ec07c"
 color15 = "#ebdbb2"
 
+# Style layer: the second var layer, alongside [theme.colors]. These values are
+# exactly what the stylesheet hardcodes, so an untouched [style] renders
+# pixel-identical — tuning happens here, in your dotfile. Lengths carry a unit
+# (px/rem/em/%/vh/vw), opacity is an integer percent (no floats — the parser
+# has no float branch), and a value that fails its validator falls back to the
+# default for that one key while the rest still apply.
+[style]
+radius = "2px"
+gap = "1em"
+pad_y = "0"
+pad_x = "8px"
+row_pad_y = "2px"
+row_pad_x = "8px"
+border = "1px"
+panel_width = "38rem"
+panel_height = "60vh"
+opacity = 100
+blur = "0"
+font = "monospace"
+font_size = "12px"
+motion_ms = 120
+motion_ease = "cubic-bezier(0.22, 1, 0.36, 1)"
+motion = true # master switch; false = 0ms everywhere
+
+# Panels (tabs, settings, and every later source): the default scope of the tab
+# panel. "workspace" lists this workspace's tabs, "all" lists every workspace's
+# and names the workspace on each row. Panel width comes from [style]
+# panel_width and nowhere else.
+[panels]
+scope = "workspace"
+
+# Privacy: the handful of Firefox prefs Aether owns. This file is the
+# authority — the value is pushed into network.trr.* on every load and reload,
+# so the settings panel can honestly report where a value came from.
+[privacy]
+doh = "fallback" # off | fallback | strict → network.trr.mode 0/2/3
+doh_url = "https://dns.quad9.net/dns-query"
+
 # Commands: scroll_down scroll_up half_down half_up top bottom back forward
 # open open_tab tab tab_new tab_close tab_next tab_prev tabs_toggle reload
 # hints insert esc palette theme_reload graveyard ws ws_next ws_rename
@@ -115,6 +155,7 @@ color15 = "#ebdbb2"
 "f" = "hints"
 "i" = "insert"
 ":" = "palette"
+"?" = "which_key"
 
 # Reserved browser shortcuts Aether takes over — the spike's core proof.
 [keymap.reserved]

@@ -4,6 +4,8 @@
 // inject closedAt and do the file I/O (aether-graveyard-service.sys.mjs).
 // Canonical order is newest-first, everywhere.
 
+import { sanitizeMeta } from "./aether-tabsource.sys.mjs";
+
 export const NO_MATCHES_MESSAGE = "graveyard: no matches";
 export const EMPTY_MESSAGE = "graveyard: empty";
 
@@ -25,8 +27,12 @@ export function isBuriable(url) {
 
 // Archive one close. Assigns a fresh id, enforces the ring cap (oldest falls
 // off). A non-buriable url buries nothing: returns null, store unchanged.
-// `workspace` (the f5 field) is carried when provided.
-export function bury(store, { url, title, closedAt, workspace }) {
+// `workspace` (the f5 field) is carried when provided, and so is `meta` (the
+// r4 field: the closed tab's rename/tags/pin/mark). The two stores share no
+// identifier — a resurrected tab is a fresh ref id — so the metadata rides the
+// record as a field copy, sanitized by aether-tabsource's rules, and is copied
+// back onto a NEW id at exhume time.
+export function bury(store, { url, title, closedAt, workspace, meta }) {
   if (!isBuriable(url)) return null;
   const record = {
     id: store.nextId++,
@@ -35,6 +41,8 @@ export function bury(store, { url, title, closedAt, workspace }) {
     closedAt,
   };
   if (typeof workspace === "string" && workspace) record.workspace = workspace;
+  const carried = sanitizeMeta(meta);
+  if (Object.keys(carried).length > 0) record.meta = carried;
   store.records.unshift(record);
   if (store.records.length > store.cap) store.records.length = store.cap;
   return record;
@@ -83,6 +91,12 @@ export function deserialize(text, cap) {
       closedAt: typeof r.closedAt === "number" ? r.closedAt : 0,
     };
     if (typeof r.workspace === "string") record.workspace = r.workspace; // reserved for f5
+    // Malformed metadata never costs the record: an unusable `meta` (a string,
+    // an array, a field of the wrong type, a "__proto__" key) degrades to an
+    // empty table, the same per-record tolerance the rest of this reader has.
+    // Always present on read, so a caller never has to guess between "no
+    // metadata" and "an older file".
+    record.meta = sanitizeMeta(r.meta);
     kept.push(record);
     if (kept.length === store.cap) break; // serialized newest-first; rest is older
   }
