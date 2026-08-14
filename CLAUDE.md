@@ -46,7 +46,7 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Repository Map
 
-- `README.md` — vision doc (still carries the startup framing; rewrite pending)
+- `README.md` — public front page (personal-tool framing, current)
 - `docs/research-v2/feature-matrix-v2.md` — v2 matrix (scoring is historical; technical content still useful)
 - `docs/feature-matrix.md` — v1 matrix (preserved)
 - `docs/research-data/`, `docs/research-v2/` — v1/v2 pipeline outputs
@@ -61,7 +61,7 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 1. **The spike.** Thin Gecko overlay proving zero-chrome + modal keyboard interception (the Zen/LibreWolf pattern). Then I daily-drive it. The engine decision gets validated by use, not by another document.
 2. Grow the overlay feature-by-feature from my actual workflow — keybindings → blocking → workspaces → local-AI bridge → agent runtime — each one gated by the maintenance budget.
-3. Rewrite `README.md` in this framing; refresh or delete `AGENTS.md`.
+3. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
 4. Iroh vs js-libp2p: decided when sync gets built, not before.
 
 ## Tools & Infrastructure
