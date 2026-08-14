@@ -13,13 +13,42 @@ log() { printf '\033[1;35m[aether]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[aether]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- 1. Locate the Firefox installation ------------------------------------
-if [[ -z "${FIREFOX_DIR:-}" ]]; then
-  fx_bin="$(command -v firefox)" || die "firefox not found in PATH (set FIREFOX_DIR to override)"
-  fx_bin="$(readlink -f "$fx_bin")"
-  FIREFOX_DIR="$(dirname "$fx_bin")"
+# Autoconfig is read from the *application* directory — the one holding
+# application.ini next to the real binary — not from wherever the launcher sits.
+# Distros ship a /usr/bin shell wrapper (`exec /usr/lib/firefox/firefox "$@"`),
+# and readlink -f resolves a wrapper to itself, so the dirname alone is wrong.
+is_app_dir() { [[ -f "$1/application.ini" ]]; }
+
+resolve_app_dir() {
+  local bin dir target
+  bin="$(command -v firefox)" || return 1
+  bin="$(readlink -f "$bin")"
+  dir="$(dirname "$bin")"
+  is_app_dir "$dir" && { printf '%s\n' "$dir"; return 0; }
+
+  # Shell-wrapper case: follow the path it execs.
+  if [[ -f "$bin" ]] && head -c 2 "$bin" 2>/dev/null | grep -q '#!'; then
+    target="$(grep -oE '/[^[:space:]"'"'"']*/(firefox|librewolf|waterfox)(-bin)?' "$bin" | head -1 || true)"
+    if [[ -n "$target" && -e "$target" ]]; then
+      dir="$(dirname "$(readlink -f "$target")")"
+      is_app_dir "$dir" && { printf '%s\n' "$dir"; return 0; }
+    fi
+  fi
+
+  for dir in /usr/lib/firefox /usr/lib64/firefox /opt/firefox \
+             /usr/lib/librewolf /usr/lib/waterfox; do
+    is_app_dir "$dir" && { printf '%s\n' "$dir"; return 0; }
+  done
+  return 1
+}
+
+if [[ -n "${FIREFOX_DIR:-}" ]]; then
+  is_app_dir "$FIREFOX_DIR" || die "no application.ini in ${FIREFOX_DIR} — that is not the application directory"
+else
+  FIREFOX_DIR="$(resolve_app_dir)" ||
+    die "could not locate the Firefox application directory (set FIREFOX_DIR to the dir holding application.ini)"
 fi
-[[ -x "${FIREFOX_DIR}/firefox" ]] || die "no firefox binary in ${FIREFOX_DIR} (set FIREFOX_DIR)"
-log "firefox install dir: ${FIREFOX_DIR}"
+log "firefox app dir: ${FIREFOX_DIR}"
 
 # --- 2. Install the Aether autoconfig loader --------------------------------
 # Our own ~40-line loader (overlay/loader/) — no external dependency.
