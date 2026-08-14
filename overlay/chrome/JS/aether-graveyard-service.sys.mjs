@@ -24,19 +24,27 @@ export const AetherGraveyard = {
   _writeChain: Promise.resolve(),
 
   // Read the profile file once at startup; idempotent across windows (first
-  // caller's cap wins). A missing/corrupt file deserializes to an empty
-  // store — never bricks.
+  // caller's cap wins).
+  //
+  // "Absent" and "unreadable" are different states. A missing file starts
+  // empty, which is correct. A file that EXISTS but cannot be read is not
+  // empty — it is unknown, and starting empty would let the next write
+  // atomically rename over data we simply failed to read. One transient I/O
+  // error plus one closed tab would destroy the whole archive, with no
+  // backup, and the only trace would be a console.info nobody sees.
   init(cap) {
     return (this._initPromise ??= this._load(cap));
   },
 
   async _load(cap) {
     let text = "";
+    this.readFailed = false;
     try {
       const path = this._path();
       if (await IOUtils.exists(path)) text = await IOUtils.readUTF8(path);
     } catch (e) {
-      console.info("[aether] graveyard file unreadable, starting empty:", e);
+      this.readFailed = true;
+      console.error("[aether] graveyard file unreadable — writes disabled:", e);
     }
     this.store = deserialize(text, cap);
     Services.obs.addObserver(() => {
@@ -72,10 +80,20 @@ export const AetherGraveyard = {
   },
 
   // Async writes, queued so they never interleave; last write wins.
+  //
+  // Refuses when the last read failed: writing here would rename over a file
+  // whose contents we never saw. `backupFile` keeps one generation so even a
+  // successful clobber is recoverable.
   _persist() {
+    if (this.readFailed) return;
     const text = serialize(this.store);
     this._writeChain = this._writeChain
-      .then(() => IOUtils.writeUTF8(this._path(), text, { tmpPath: `${this._path()}.tmp` }))
+      .then(() =>
+        IOUtils.writeUTF8(this._path(), text, {
+          tmpPath: `${this._path()}.tmp`,
+          backupFile: `${this._path()}.bak`,
+        })
+      )
       .catch(e => console.error("[aether] could not write graveyard:", e));
   },
 };

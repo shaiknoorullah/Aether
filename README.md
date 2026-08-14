@@ -16,7 +16,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 [![Made for Neurodivergent & Power Users](https://img.shields.io/badge/made%20for-neurodivergent%20%26%20power%20users-ff69b4)](#the-adhd-problem)
 
-> **`Aether` is a working codename — rename to taste.** `AGPL-3.0` is a deliberate default (see [Why AGPL](#-license)); swap it if your goals differ. The engine is **decided and shipped**: a thin overlay on stock Firefox — no fork, no build, no patches. **v1.1.0 is working today** — see [Getting Started](#getting-started); ✅ marks shipped features throughout.
+> **`Aether` is a working codename — rename to taste.** `AGPL-3.0` is a deliberate default (see [Why AGPL](#-license)); swap it if your goals differ. The engine is **decided and shipped**: a thin overlay on stock Firefox — no fork, no build, no patches. **v1.1.0 is working today** — see [Getting Started](#getting-started). What is built and what is planned lives in one place: the [build matrix](docs/feature-matrix-build.md).
 
 </div>
 
@@ -195,40 +195,38 @@ Aether is researched against five concrete user segments, in priority order:
 
 ## Features
 
-> Grouped by intent. Everything here is part of the vision; see the [Roadmap](#roadmap) for sequencing and the [Feature Matrix](#-the-feature-matrix-evidence-backed) for evidence-backed prioritization.
->
-> **✅ = shipped in v1.1.0** (test-proven; details in [`overlay/README.md`](overlay/README.md)). Unmarked = still vision.
+> Grouped by intent. **This section is the vision, not a status board** — for what actually exists today, read the [build matrix](docs/feature-matrix-build.md), which tracks whole versions rather than marking individual lines. v1.0.0 and v1.1.0 are complete; per-feature detail lives in [`overlay/README.md`](overlay/README.md).
 
 ### 🧘 The Canvas — Distraction-Free Shell
-- ✅ **Zero-chrome default**: nothing visible but the webpage — no tabs, no address bar, no buttons.
-- ✅ **Keyboard-first everything**: command palette, omni/URL entry, tab switcher, settings, and actions all summoned by keybind in elegant overlays, popups, and context menus.
-- ✅ **Native vim/modal keybindings** (Normal / Insert / Hint / Command modes) — *impossible to do well via an extension*, and a beachhead for 660K+ keyboard-first users with zero good alternatives.
+- **Zero-chrome default**: nothing visible but the webpage — no tabs, no address bar, no buttons.
+- **Keyboard-first everything**: command palette, omni/URL entry, tab switcher, settings, and actions all summoned by keybind in elegant overlays, popups, and context menus.
+- **Native vim/modal keybindings** (Normal / Insert / Hint / Command modes) — *impossible to do well via an extension*, and a beachhead for 660K+ keyboard-first users with zero good alternatives.
 - **Focus & compact modes** with progressive disclosure — show exactly as much as you ask for, nothing more.
-- ✅ *(TOML keymap)* **Full keyboard shortcut customization** with conflict detection across modes; **keyboard-only navigation** of every chrome surface (WCAG-aligned).
+- **Full keyboard shortcut customization** with conflict detection across modes; **keyboard-only navigation** of every chrome surface (WCAG-aligned).
 
 ### 🗂️ Tabs & Spatial Organization
-- ✅ **Vertical tab sidebar** as the post-2025 table-stakes scaffold for workspaces.
+- **Vertical tab sidebar** as the post-2025 table-stakes scaffold for workspaces.
 - **Rich tabs**: live previews, fuzzy search, grouping, transfer between windows/workspaces, archive, rename.
-- ✅ *(close-archives + resurrect)* **Doom-tab amnesty / tab graveyard**: stale tabs auto-archive to a fast, searchable, state-preserving graveyard, so closing never means losing. Declare *tab bankruptcy* safely; AI clusters the piles ("14 tabs about X — make this a project?").
+- **Doom-tab amnesty / tab graveyard**: stale tabs auto-archive to a fast, searchable, state-preserving graveyard, so closing never means losing. Declare *tab bankruptcy* safely; AI clusters the piles ("14 tabs about X — make this a project?").
 - **Opinionated hierarchy** of **Workspaces → Profiles → Containers → Tab Groups**, with sane, batteries-included conventions for how they nest and when to use each.
-- ✅ **Project-first workspaces**: project-scoped tabs, history, cookies, and state — Aether's identity feature.
-- ✅ *(tabs + scroll)* **Per-workspace session persistence**: scroll positions, form data, and auth state preserved per project.
-- ✅ *(scroll positions)* **Context resurrection** ("Where was I?"): captures not just your tab set but the *why* (a one-line or voice note), and restores the exact working context after an interruption.
+- **Project-first workspaces**: project-scoped tabs, history, cookies, and state — Aether's identity feature.
+- **Per-workspace session persistence**: scroll positions, form data, and auth state preserved per project.
+- **Context resurrection** ("Where was I?"): captures not just your tab set but the *why* (a one-line or voice note), and restores the exact working context after an interruption.
 - **Tab unloading / hibernation**: automatic tab suspension to keep 100+ tab workflows light.
 
 ### 🎨 Theming & Ricing
-- ✅ **Fully themeable chrome**, driven entirely by design tokens / CSS variables.
-- ✅ **System theme inheritance** in the spirit of `pywal` / `matugen` / `wallust` / `base16`: switch your desktop to Catppuccin and Aether's colors, fonts, light/dark mode, palette, and icons all follow — automatically.
-- ✅ *(via `:zap`/`:boost` CSS boosts)* **Best-effort web-content theming** (reader mode, injected stylesheets) where sites allow it.
+- **Fully themeable chrome**, driven entirely by design tokens / CSS variables.
+- **System theme inheritance** in the spirit of `pywal` / `matugen` / `wallust` / `base16`: switch your desktop to Catppuccin and Aether's colors, fonts, light/dark mode, palette, and icons all follow — automatically.
+- **Best-effort web-content theming** (reader mode, injected stylesheets) where sites allow it.
 
 ### ⌨️ Configuration as Data
-- ✅ *(TOML)* Entire browser configured in **`YAML` / `TOML` / `JSON`** — settings, keybinds, themes, layouts, statusbar, agents.
-- ✅ **Declarative, version-controllable, shareable** dotfiles — version-control your entire browser setup.
+- Entire browser configured in **`YAML` / `TOML` / `JSON`** — settings, keybinds, themes, layouts, statusbar, agents.
+- **Declarative, version-controllable, shareable** dotfiles — version-control your entire browser setup.
 - **Scripting hooks** as an escape hatch for behavior that declarative config can't express.
 
 ### 🤖 Native AI (Local-First, Trustworthy)
-- ✅ **Local-first AI gateway**: speaks to **LM Studio** / **Ollama** and any OpenAI-compatible endpoint out of the box (BYOM); optional frontier models for the genuinely hard problems (your choice, your keys). The privacy claim is *architectural*.
-- ✅ *(chat; page context is a non-goal for now)* **AI sidebar** with full page/DOM context, scoped to the current workspace — summarize, ask, transform.
+- **Local-first AI gateway**: speaks to **LM Studio** / **Ollama** and any OpenAI-compatible endpoint out of the box (BYOM); optional frontier models for the genuinely hard problems (your choice, your keys). The privacy claim is *architectural*.
+- **AI sidebar** with full page/DOM context, scoped to the current workspace — summarize, ask, transform.
 - **AI page/PDF/YouTube summarization** — the one-click "show, don't tell" AI moment.
 - **Coding-agent control plane**: connect and command multiple running coding agents from inside the browser.
 - **The Spectator** — an always-on, *local* observer of your active tab, dwell time, switching patterns, and idle state, which checks your behavior against your stated intent and nudges you. Designed around three rules:
@@ -244,21 +242,21 @@ Aether is researched against five concrete user segments, in priority order:
 ### 🛡️ Privacy, Security & Content Control
 - **Native ad & tracker blocking** using a mature blocklist engine (e.g. uBlock Origin's) — built into the engine, beating MV3-limited extensions. The #1 adoption driver.
 - **Notification spam blocking**: default the notification permission to *deny*.
-- ✅ **Zero-telemetry architecture**: verifiable, by design; opt-in crash reporting only.
+- **Zero-telemetry architecture**: verifiable, by design; opt-in crash reporting only.
 - **Firewall and privacy tooling** surfaced as first-class settings.
 - A curated set of **opinionated, pre-configured extensions** that ship working out of the box.
 
 ### 🧩 Extensibility & Compatibility
-- ✅ *(inherited from Firefox)* **WebExtension API support**: a browser without password managers and uBlock Origin is dead on arrival — full extension-runtime compatibility, tested across the top extensions.
+- **WebExtension API support**: a browser without password managers and uBlock Origin is dead on arrival — full extension-runtime compatibility, tested across the top extensions.
 - **Composable modules / primitives**: features as composable building blocks, not a monolith.
 - **Frictionless migration from Chrome/Firefox**: one-click import of bookmarks, passwords, and history (most users are Chrome refugees — import or they bounce).
 - **Profile export/import**: full profile portability — users need an exit door to enter willingly.
 
 ### 🛠️ Developer & Platform-Engineer Native
-- ✅ *(framework + core widgets)* **`tmux`/`polybar`-style statusbar**: glanceable, clickable widgets for **ArgoCD cluster status**, cluster & agent notifications, **open PRs**, current tasks, and **Timewarrior** timers.
+- **`tmux`/`polybar`-style statusbar**: glanceable, clickable widgets for **ArgoCD cluster status**, cluster & agent notifications, **open PRs**, current tasks, and **Timewarrior** timers.
 - **First-class, native-feeling integrations**: **Obsidian, GitHub, Linear, Slack, Taskwarrior, Timewarrior** — read local CLIs/files directly, call remote APIs where needed.
-- ✅ **Native command palette / ex-mode**: a built-in `:command` line with tab completion, fuzzy search, and full browser access.
-- ✅ **Hideable/showable chrome** down to nothing, on a keystroke.
+- **Native command palette / ex-mode**: a built-in `:command` line with tab completion, fuzzy search, and full browser access.
+- **Hideable/showable chrome** down to nothing, on a keystroke.
 
 ### 📊 Dashboard as a Web App
 - The **new-tab page is a full, customizable web application** — your real home base.
@@ -278,14 +276,14 @@ Aether is researched against five concrete user segments, in priority order:
 - The browser's superpower is **frictionless capture**; the canvas engine is borrowed, not reinvented.
 
 ### 🎯 Focus & Habits
-- ✅ *(task-conditioned `:focus` sessions)* **Deep-focus modes** and a pervasive distraction-free posture.
+- **Deep-focus modes** and a pervasive distraction-free posture.
 - **Habit building & breaking** with **commitment-device locks** for compulsive-use loops. Locks are intentionally **enforced through an external trust anchor** (a paired peer who holds the unlock, or a genuine time-lock you can't fast-forward) so they can't be trivially self-revoked — the only design under which a software blocker actually holds.
-- ✅ *(clock · date · calm elapsed)* **Ambient, non-anxious time awareness**: glanceable elapsed time, a visual *shrinking* timer, and "this usually takes you ~X" estimates derived from your own history. Informational, never scolding.
+- **Ambient, non-anxious time awareness**: glanceable elapsed time, a visual *shrinking* timer, and "this usually takes you ~X" estimates derived from your own history. Informational, never scolding.
 - **Task-initiation ramps**: one keybind opens *everything* needed for task X, and the AI breaks a daunting task down to the literal first click.
 - **Frictionless capture → deferred AI triage**: dump a thought into an inbox with zero in-the-moment decisions; AI sorts it into tasks/notes/graph later.
 
 ### 📨 Opinionated App Surfaces
-- ✅ *(the substrate: per-site CSS boosts)* Minimal, productivity-first, distraction-stripped reskins for high-use daily drivers like **Gmail** and **YouTube**.
+- Minimal, productivity-first, distraction-stripped reskins for high-use daily drivers like **Gmail** and **YouTube**.
 
 ### 🔗 Sync & Collaboration
 - **No-cloud, peer-to-peer, end-to-end-encrypted, decentralized sync** — built on local-first CRDTs (**Yjs / Automerge**) over a P2P transport (**Iroh / libp2p**), with a pragmatic fallback of syncing your state directory via **Syncthing**.
@@ -303,21 +301,21 @@ Aether is researched before it is built. Every feature is scored with **RICE** (
 |------|---------|----------|------|--------|
 | 1 | Native Ad/Tracker Blocking | Privacy & Security | 12.08 | **Must** |
 | 2 | Notification Spam Blocking | Core Browsing | 10.76 | Should |
-| 3 | Vertical Tab Sidebar ✅ | Workspace | 7.45 | **Must** |
+| 3 | Vertical Tab Sidebar | Workspace | 7.45 | **Must** |
 | 4 | Frictionless Migration from Chrome | Sync | 7.00 | **Must** |
-| 5 | WebExtension API Support ✅ | Extensibility | 6.65 | **Must** |
+| 5 | WebExtension API Support | Extensibility | 6.65 | **Must** |
 | 6 | AI Page Summarization | AI & Agents | 6.03 | Should |
 | 7 | Tab Unloading/Hibernation | Performance | 5.41 | Should |
-| 8 | Zero Telemetry Architecture ✅ | Privacy & Security | 5.33 | **Must** |
-| 9 | Tab Graveyard / Recovery ✅ | Workspace | 4.87 | Should |
+| 8 | Zero Telemetry Architecture | Privacy & Security | 5.33 | **Must** |
+| 9 | Tab Graveyard / Recovery | Workspace | 4.87 | Should |
 | 10 | Profile Export/Import | Sync | 4.85 | Should |
-| 11 | Native Command Palette / Ex-Mode ✅ | Keyboard | 4.83 | Should |
+| 11 | Native Command Palette / Ex-Mode | Keyboard | 4.83 | Should |
 | 12 | Memory-Efficient Tab Mgmt | Performance | 4.72 | Should |
-| 13 | LLM Sidebar Chat ✅ | AI & Agents | 4.56 | Should |
-| 14 | Project-First Workspaces ✅ | Workspace | 4.53 | Should |
-| 15 | Native Vim/Modal Keybindings ✅ | Keyboard | 4.26 | Should |
+| 13 | LLM Sidebar Chat | AI & Agents | 4.56 | Should |
+| 14 | Project-First Workspaces | Workspace | 4.53 | Should |
+| 15 | Native Vim/Modal Keybindings | Keyboard | 4.26 | Should |
 
-> ✅ = shipped in v1.1.0.
+> **Historical artifact.** This scoring is from the 2026-04 research wave, preserved as written. The RICE/MoSCoW machinery is retired — features are now judged by daily use and the maintenance budget, and tracked in the [build matrix](docs/feature-matrix-build.md).
 >
 > **Council finding:** only **4 features reached "Must" consensus** — Ad/Tracker Blocking, Vertical Tabs, WebExtensions, and Zero Telemetry. Aether's identity features (Workspaces, Vim Keys, Local AI) are strategically critical but operationally contested, and are honestly rated high-priority **"Should"** rather than overstated as "Must."
 
@@ -329,7 +327,7 @@ Aether is researched before it is built. Every feature is scored with **RICE** (
 
 Aether is a **UI/UX shell over a web engine** — the engine is intentionally *not* where the innovation lives.
 
-> ### ✅ The engine is decided — and shipped
+> ### The engine is decided — and shipped
 > **Firefox, as a thin overlay** (autoconfig + privileged chrome JS — no fork, no build step, no source patches; `overlay/`). Chromium/CEF stays the documented fallback. The candidates as researched, kept for the record:
 >
 > | Option | Upside | Cost |
@@ -356,7 +354,7 @@ Aether is a **UI/UX shell over a web engine** — the engine is intentionally *n
 │  + optional   │   tutor · researcher · …         │   the browser,    │
 │  frontier)    │   interruption budget            │   sandboxed)      │
 ├───────────────┴───────────────────────────────┴───────────────────┤
-│        WEB ENGINE  ✅ Firefox (thin overlay — no fork,             │
+│        WEB ENGINE  Firefox (thin overlay — no fork,               │
 │                       no build, no source patches)                │
 ├─────────────────────────────────────────────────────────────────┤
 │        SELF-HOSTED BACKEND (optional, your infra)                 │
@@ -388,7 +386,7 @@ Aether is a **UI/UX shell over a web engine** — the engine is intentionally *n
 
 Aether is configured the way you configure your window manager — declaratively, in plain text, in version control.
 
-> ✅ Today: TOML at `~/.config/aether/aether.toml` (keymaps, statusbar, theme, AI, boosts — see [`overlay/README.md`](overlay/README.md)). The YAML below is the fuller vision.
+> Today: TOML at `~/.config/aether/aether.toml` (keymaps, statusbar, theme, AI, boosts — see [`overlay/README.md`](overlay/README.md)). The YAML below is the fuller vision.
 
 ```yaml
 # ~/.config/aether/config.yaml
@@ -457,7 +455,7 @@ focus:
 
 Aether's heavier capabilities lean on real infrastructure you run on **your own bare-metal or VMs** — nothing here requires a vendor cloud.
 
-> Vision — not yet built. ✅ Today the only backend is your local model runner (Ollama / LM Studio / any OpenAI-compatible endpoint).
+> Vision — not yet built. Today the only backend is your local model runner (Ollama / LM Studio / any OpenAI-compatible endpoint).
 
 | Capability | Self-hosted engine (suggested, all OSS-friendly) |
 |---|---|
@@ -474,7 +472,7 @@ Aether ships with connector configs and health-checks for each, and treats them 
 
 ## Getting Started
 
-✅ **Aether v1.1.0 runs today** as an overlay on stock Firefox.
+**Aether v1.1.0 runs today** as an overlay on stock Firefox.
 
 **Prerequisites:** Firefox (any Firefox-family browser works), and optionally **Ollama** / **LM Studio** for the AI features.
 
@@ -494,18 +492,23 @@ Firefox upgrades (or add a pacman hook).
 
 ## Roadmap
 
-Shipping in vertical slices — each milestone is usable on its own. Sequencing is informed by the [Feature Matrix](#-the-feature-matrix-evidence-backed). ✅ marks the parts shipped as of v1.1.0.
+Shipping in vertical slices — each version is usable on its own, and **a version is complete or it isn't**. Status for every feature lives in one place, the [build matrix](docs/feature-matrix-build.md); the phase-level plan and its constraints are in [`docs/execution-plan.md`](docs/execution-plan.md).
 
-- [x] **v0.0 — Decide the engine.** Resolved: Firefox thin overlay ✅; IPC/control-plane architecture locked ✅.
-- [ ] **v0.1 — Home base.** Custom new-tab dashboard · `tmux`-style statusbar ✅ (framework + core widgets; ArgoCD/PR widgets pending) · AI sidebar wired to a local gateway ✅.
-- [ ] **v0.2 — The Canvas.** Zero-chrome shell ✅ · keyboard-driven overlays ✅ · native modal keybindings ✅ · rich tabs (archive ✅ via graveyard; previews/fuzzy pending) · full theming + system inheritance ✅.
-- [ ] **v0.3 — Spaces & config.** Workspaces/Containers ✅ (Profiles/Groups pending) · declarative TOML config ✅ (hooks pending) · ad/tracker blocking (via uBO today) · WebExtension support ✅ · Chrome/Firefox import.
-- [ ] **v0.4 — Resident AI.** The Spectator (local, flow-aware) · Tutor agent (spaced repetition + TTS/STT) · Researcher agent · interruption budget · transparent reasoning.
-- [ ] **v0.5 — Workflows.** Record→replay durable workflows on a self-hosted engine · AI re-grounding · sandboxed container workloads · agent-safe IPC/CDP control surface.
-- [ ] **v0.6 — Knowledge & focus.** Recursive graph capture → Logseq/Obsidian · context resurrection ✅ (scroll) · habit/commitment locks · ambient time ✅ · task-initiation ramps.
-- [ ] **v0.7 — Decentralized sync.** P2P, e2e-encrypted, CRDT-based sync (no cloud) · profile export/import.
-- [ ] **v0.8 — Collaboration.** Real-time team/task views · body-doubling · opinionated Gmail/YouTube surfaces.
-- [ ] **v1.0 — Aether.** All of the above, stable, documented, and lovable.
+**v1.0.0 — the adoption floor.** *Complete, 2026-07-18.* Zero-chrome modal shell with reserved-chord interception · command palette · statusbar widgets · pywal/base16 theming · vertical tabs + tab graveyard · container-isolated workspaces with owned restore · task-conditioned focus sessions with a mechanical non-shaming lexicon · local-AI sidebar, loopback-only, kill switch default OFF.
+
+**v1.1.0 — the personalized web, tiers 0 and 1.** *Complete, 2026-08-12.* Per-domain CSS boost dotfiles with the `:zap` element picker and a lexical sanitizer · AI-generated CSS boosts that sample structure only, preview before writing, and auto-apply nothing · scroll-position context resurrection.
+
+**v1.2.0 — the rice pass.** Live config reload with save-to-apply · a style layer beyond colour (radius, gaps, opacity, blur, fonts) plus motion · which-key discovery · the panel primitive, with **tabs becoming a searchable MRU panel and the vertical strip cut** · a settings panel that never rewrites your dotfile · DNS-over-HTTPS.
+
+**v1.3.0 — the extension pass.** Behavior as files: a frozen command facade with named hooks, so a script can define commands, wrap open-link, or rescore hints — without embedding a language runtime · mods bundling style + commands + settings, split into a *style* tier that installs from a URL because CSS is sanitized, and a *code* tier that installs by git clone because privileged JS has no sandbox · fuzzy matching and frecency ranking · a GitHub mod as the reference consumer.
+
+**v1.4.0 — panel sources.** Bookmarks (flat, tags, no hierarchy), history, and downloads on the same panel surface. Marks and pins across all of them.
+
+**v2.0.0 — the daemon.** A local Rust daemon holding the integration weight off the rebase treadmill: unified media control and a visualizer over MPRIS · a rules engine that auto-registers the interstitial work you never log · time-data enrichment where the browser supplies ground truth ActivityWatch structurally can't get, and measured data never mixes with inferred · self-hosted service surfaces · per-workspace network identity · encryption at rest.
+
+**v2.1.0 — the agent.** The command registry *is* the agent's API, so anything you can do it can do, through the same code path and the same log. Consent as risk classes in config, plan-as-workflow execution rather than a live loop, and taint tracking for the case that actually matters: an instruction that may not have come from you.
+
+> Sequencing after v1.3.0 is decided by [`docs/friction-log.md`](docs/friction-log.md) — the 30-day daily-drive gate — not by this list. Prompt injection is assumed unsolved throughout.
 
 ---
 
