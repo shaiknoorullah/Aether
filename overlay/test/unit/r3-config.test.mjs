@@ -169,7 +169,7 @@ test("palette: every registry entry declares a known risk level", () => {
 
 test("palette: every command bound in the default keymap resolves to a described registry entry", () => {
   for (const [sequence, value] of Object.entries(DEFAULTS.keymap.normal)) {
-    const entry = commandEntry(value);
+    const entry = commandEntry(String(value).replace(/<char>$/, "").split(" ")[0]);
     assert.ok(entry, `'${sequence}' is bound to '${value}', which is not in the registry`);
     assert.ok(
       entry.description.length > 0,

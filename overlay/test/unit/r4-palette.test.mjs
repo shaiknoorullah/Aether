@@ -161,7 +161,7 @@ test("palette: panel copy is present, non-empty, and echoes what it was given", 
   }
 });
 
-// 23. the keymap surface — KNOWN RED, blocked on Foundation -----------------
+// 23. the keymap surface — LANDED in the glue pass -------------------------
 //
 // Spec §2 "TOML surface" lists eleven bindings, and §3 says `tabs_toggle` is
 // deleted from REGISTRY, DEFAULTS, the example TOML and the README table.
@@ -192,13 +192,13 @@ const R4_NORMAL_KEYS = {
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), `tab_pin_goto ${i + 1}`])),
 };
 
-test("config: the eleven r4 bindings are in DEFAULTS", { todo: "keymap bindings land with the glue pass: rebinding T before glue exists leaves a dead key, and deleting tabs_toggle without reverting f4's sidebar prefs leaves the native strip rendering permanently" }, () => {
+test("config: the eleven r4 bindings are in DEFAULTS", () => {
   for (const [key, command] of Object.entries(R4_NORMAL_KEYS)) {
     assert.equal(DEFAULTS.keymap.normal[key], command, `normal-mode '${key}' must be bound to ${command}`);
   }
 });
 
-test("config: the eleven r4 bindings are in the shipped example TOML too", { todo: "keymap bindings land with the glue pass: rebinding T before glue exists leaves a dead key, and deleting tabs_toggle without reverting f4's sidebar prefs leaves the native strip rendering permanently" }, () => {
+test("config: the eleven r4 bindings are in the shipped example TOML too", () => {
   // A DEFAULTS-only landing reds f1's whole-file sync guard, which no feature
   // team owns — so both sides are asserted here, separately, to say which half
   // is missing.
@@ -207,7 +207,7 @@ test("config: the eleven r4 bindings are in the shipped example TOML too", { tod
   }
 });
 
-test("config: T opens the tab panel, not the vertical strip this spec deletes", { todo: "keymap bindings land with the glue pass: rebinding T before glue exists leaves a dead key, and deleting tabs_toggle without reverting f4's sidebar prefs leaves the native strip rendering permanently" }, () => {
+test("config: T opens the tab panel, not the vertical strip this spec deletes", () => {
   assert.equal(DEFAULTS.keymap.normal.T, "tabs");
   assert.equal(EXAMPLE.keymap.normal.T, "tabs");
   assert.equal(

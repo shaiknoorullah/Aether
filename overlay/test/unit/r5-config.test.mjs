@@ -76,7 +76,7 @@ test("config: the example aether.toml [privacy] section parses identically to DE
 
 test("palette: settings and describe are registered, described, and reachable by completion", () => {
   for (const name of ["settings", "describe"]) {
-    const entry = commandEntry(name);
+    const entry = commandEntry(String(name).replace(/<char>$/, "").split(" ")[0]);
     assert.ok(entry, `${name} is missing from REGISTRY`);
     assert.equal(typeof entry.description, "string");
     assert.ok(entry.description.trim().length > 0, `${name} has no description`);
@@ -315,7 +315,9 @@ test("panel: the command list is every registry command, marked bound or unbound
   // and must not red this test, but "unbound" silently meaning nothing must.
   const fromKeymap = new Set(
     [...Object.values(keymap.normal), ...Object.values(keymap.reserved)]
-      .map(v => v.split(" ")[0])
+      // parseBinding's normalization, both halves: `mark_set<char>` and
+      // `tab_pin_goto 1` are bindings of mark_set and tab_pin_goto.
+      .map(v => String(v).replace(/<char>$/, "").split(" ")[0])
       .filter(name => Object.hasOwn(REGISTRY, name)),
   );
   assert.deepEqual(

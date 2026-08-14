@@ -17,8 +17,10 @@ test("config: DEFAULTS.graveyard.cap is 500", () => {
   assert.equal(AetherConfig.DEFAULTS.graveyard?.cap, 500);
 });
 
-test("config: 'T' binds tabs_toggle in the default normal keymap, 't' stays tab_new", () => {
-  assert.equal(AetherConfig.DEFAULTS.keymap.normal.T, "tabs_toggle");
+test("config: 'T' binds the tab panel in the default normal keymap, 't' stays tab_new", () => {
+  // r4: T opens the searchable panel; the vertical strip it used to
+  // toggle is deleted, prefs and all.
+  assert.equal(AetherConfig.DEFAULTS.keymap.normal.T, "tabs");
   assert.equal(AetherConfig.DEFAULTS.keymap.normal.t, "tab_new", "lowercase t must stay tab_new");
 });
 
@@ -34,7 +36,7 @@ test("config: example aether.toml [graveyard] section parses identically to DEFA
 
 test("config: example aether.toml [keymap.normal] (incl. the T binding) matches DEFAULTS", () => {
   const parsed = parseToml(readFileSync(EXAMPLE_TOML, "utf8"));
-  assert.equal(parsed.keymap?.normal?.T, "tabs_toggle", "example TOML must carry the T binding");
+  assert.equal(parsed.keymap?.normal?.T, "tabs", "example TOML must carry the T binding");
   assert.deepEqual(
     parsed.keymap?.normal,
     AetherConfig.DEFAULTS.keymap.normal,

@@ -56,8 +56,9 @@ user_pref("browser.startup.page", 0);
 // every hidden workspace down with it. closeCurrentTab passes the same flag
 // per-call; this pref covers the paths that bypass it.
 user_pref("browser.tabs.closeWindowWithLastTab", false);
-user_pref("sidebar.revamp", true); // f4: native vertical tabs, restyled by userChrome.css
-user_pref("sidebar.verticalTabs", true);
+user_pref("sidebar.revamp", false); // r4: the vertical strip is CUT — tabs are a searchable panel now.
+// These stay false or Firefox renders the native strip permanently.
+user_pref("sidebar.verticalTabs", false);
 user_pref("dom.security.https_only_mode", true);
 user_pref("browser.contentblocking.category", "strict");
 user_pref("browser.download.useDownloadDir", false);

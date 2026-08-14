@@ -1103,7 +1103,7 @@ test("settings: SCHEMA covers every DEFAULTS leaf except exactly the two declare
   // Canary on the walker, not on the schema: the keymap is an OPEN_TABLE, so a
   // new binding moves this number and nothing else. 82 -> 83 at integration,
   // when r3's `"?" = "which_key"` landed in DEFAULTS.keymap.normal.
-  assert.equal(leaves.length, 83, "the walker really walked DEFAULTS (83 leaves today)");
+  assert.equal(leaves.length, 94, "the walker really walked DEFAULTS (94 leaves today (r4 added 11 keymap bindings))");
   assert.deepEqual([...OPEN_TABLES], ["keymap", "theme.colors"], "exactly two exclusions, no quiet third");
 
   const expected = leaves.filter(p => !isOpen(p));

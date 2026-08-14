@@ -16,7 +16,7 @@ Last updated 2026-08-14.
 |---|---|---|
 | v1.0.0 | Spike + the seven floor items | **Complete** — 2026-07-18 |
 | v1.1.0 | Site boosts, AI CSS boosts, context resurrection | **Complete** — 2026-08-12 |
-| v1.2.0 | The rice pass | Specs written, not started |
+| v1.2.0 | The rice pass | **Complete** — 2026-08-14 |
 | v1.3.0 | The extension pass | Specs written (design-reviewed), not started |
 | v1.4.0 | Panel sources | Specs written, not started |
 | v2.0.0 | `aetherd` and integrations | Specs written, not started |

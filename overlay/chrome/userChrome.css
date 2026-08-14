@@ -100,10 +100,10 @@
 #aether-statusbar {
   display: flex;
   align-items: center;
-  gap: 1em;
+  gap: var(--aether-gap, 1em);
   height: 24px;
-  padding: 0 8px;
-  font: 12px monospace;
+  padding: var(--aether-pad-y, 0) var(--aether-pad-x, 8px);
+  font: var(--aether-font-size, 12px) var(--aether-font, monospace);
   background-color: var(--aether-bg, var(--toolbar-bgcolor, #1d2021));
   color: var(--aether-fg, var(--toolbar-color, #ebdbb2));
   border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
@@ -113,7 +113,7 @@
 #aether-statusbar .aether-mode {
   font-weight: bold;
   padding: 1px 8px;
-  border-radius: 2px;
+  border-radius: var(--aether-radius, 2px);
 }
 #aether-statusbar[data-mode="normal"] .aether-mode {
   background-color: var(--aether-color2, #98971a);
@@ -200,7 +200,7 @@
 
 /* --- Aether command palette (injected by aether.uc.js, sits above the bar) --- */
 #aether-palette {
-  font: 12px monospace;
+  font: var(--aether-font-size, 12px) var(--aether-font, monospace);
   background-color: var(--aether-bg, var(--toolbar-bgcolor, #1d2021));
   color: var(--aether-fg, var(--toolbar-color, #ebdbb2));
   border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
@@ -208,8 +208,8 @@
 }
 #aether-palette .aether-palette-candidates {
   display: flex;
-  gap: 1em;
-  padding: 2px 8px;
+  gap: var(--aether-gap, 1em);
+  padding: var(--aether-row-pad-y, 2px) var(--aether-row-pad-x, 8px);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -220,13 +220,13 @@
   background-color: var(--aether-accent, #98971a);
   color: var(--aether-bg, #1d2021);
   padding: 0 4px;
-  border-radius: 2px;
+  border-radius: var(--aether-radius, 2px);
 }
 #aether-palette .aether-palette-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: var(--aether-row-pad-y, 2px) var(--aether-row-pad-x, 8px);
 }
 #aether-palette .aether-palette-prompt {
   font-weight: bold;
@@ -239,3 +239,91 @@
   border: none;
   outline: none;
 }
+
+
+/* --- r2: motion ---------------------------------------------------------- */
+/* Four surfaces, one duration, one curve. Opening animates opacity and a small
+   transform; nothing animates position-of-content and nothing loops. */
+#aether-statusbar .aether-msg,
+#aether-palette,
+#aether-panel,
+#aether-whichkey,
+#aether-ai-sidebar {
+  transition:
+    opacity var(--aether-motion-ms, 120ms) var(--aether-motion-ease, ease),
+    transform var(--aether-motion-ms, 120ms) var(--aether-motion-ease, ease);
+}
+#aether-palette[hidden],
+#aether-panel[hidden],
+#aether-whichkey[hidden] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* The OS wins, and it wins permanently: applyStyle() regenerates the var
+   element on every reload, so a JS override would be undone by the next save.
+   A static rule survives regeneration. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --aether-motion-ms: 0ms !important; }
+}
+
+/* --- r4: the panel primitive --------------------------------------------- */
+#aether-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--aether-bg, #1d2021);
+  color: var(--aether-fg, #ebdbb2);
+  font: var(--aether-font-size, 12px) var(--aether-font, monospace);
+  border-top: var(--aether-border, 1px) solid var(--aether-color8, #928374);
+  max-height: var(--aether-panel-height, 60vh);
+  opacity: var(--aether-opacity, 100%);
+}
+#aether-panel[hidden] { display: none; }
+.aether-panel-title {
+  padding: var(--aether-row-pad-y, 2px) var(--aether-row-pad-x, 8px);
+  color: var(--aether-accent, #458588);
+}
+.aether-panel-rows { overflow-y: auto; }
+.aether-panel-item {
+  padding: var(--aether-row-pad-y, 2px) var(--aether-row-pad-x, 8px);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aether-panel-item.aether-selected {
+  background: var(--aether-accent, #458588);
+  color: var(--aether-bg, #1d2021);
+}
+.aether-panel-item.aether-marked { border-left: var(--aether-border, 1px) solid var(--aether-color3, #d79921); }
+.aether-panel-empty, .aether-panel-more { color: var(--aether-color8, #928374); }
+.aether-panel-row {
+  display: flex;
+  gap: var(--aether-gap, 1em);
+  align-items: center;
+  padding: var(--aether-row-pad-y, 2px) var(--aether-row-pad-x, 8px);
+  border-top: var(--aether-border, 1px) solid var(--aether-color8, #928374);
+}
+.aether-panel-action { color: var(--aether-color3, #d79921); }
+.aether-panel-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font: inherit;
+}
+
+/* --- r3: which-key -------------------------------------------------------- */
+#aether-whichkey {
+  display: flex;
+  flex-direction: column;
+  background: var(--aether-bg, #1d2021);
+  color: var(--aether-fg, #ebdbb2);
+  font: var(--aether-font-size, 12px) var(--aether-font, monospace);
+  border-top: var(--aether-border, 1px) solid var(--aether-color8, #928374);
+  padding: var(--aether-row-pad-y, 2px) 0;
+  opacity: var(--aether-opacity, 100%);
+}
+#aether-whichkey[hidden] { display: none; }
+.aether-whichkey-row { padding: 0 var(--aether-row-pad-x, 8px); }
+.aether-whichkey-more { color: var(--aether-color8, #928374); }
