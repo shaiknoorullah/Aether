@@ -40,35 +40,40 @@ install_autoconfig() {
   fi
   $1 cp "${OVERLAY_DIR}/loader/zz-aether.js" "${FIREFOX_DIR}/defaults/pref/zz-aether.js"
 }
-if [[ -w "$FIREFOX_DIR" ]]; then
+autoconfig_current() {
+  local cfg
+  cfg="$(ls "${FIREFOX_DIR}"/*.cfg "${FIREFOX_DIR}"/config.js 2>/dev/null | head -1 || true)"
+  [[ -n "$cfg" ]] && grep -q "AETHER-LOADER" "$cfg" 2>/dev/null &&
+    cmp -s "${OVERLAY_DIR}/loader/zz-aether.js" "${FIREFOX_DIR}/defaults/pref/zz-aether.js"
+}
+if autoconfig_current; then
+  log "autoconfig already current"
+elif [[ -w "$FIREFOX_DIR" ]]; then
   install_autoconfig ""
+  log "autoconfig installed"
 else
   log "need sudo to write autoconfig into ${FIREFOX_DIR}"
   install_autoconfig "sudo"
+  log "autoconfig installed"
 fi
-log "autoconfig installed"
 
 # --- 3. Create the profile ---------------------------------------------------
-profile_path=""
-if [[ -f "${MOZ_DIR}/profiles.ini" ]]; then
-  profile_path="$(awk -F= -v name="$PROFILE_NAME" '
-    /^\[/{sect=1; n=""; p=""; rel=1}
-    $1=="Name"{n=$2}
-    $1=="IsRelative"{rel=$2}
-    $1=="Path"{p=$2}
-    n==name && p!="" {print (rel=="1" ? ENVIRON["MOZ_DIR"] "/" p : p); exit}
-  ' MOZ_DIR="$MOZ_DIR" "${MOZ_DIR}/profiles.ini" || true)"
-fi
-if [[ -z "$profile_path" ]]; then
-  log "creating profile '${PROFILE_NAME}'"
-  "${FIREFOX_DIR}/firefox" -CreateProfile "$PROFILE_NAME" >/dev/null 2>&1
-  profile_path="$(MOZ_DIR="$MOZ_DIR" awk -F= -v name="$PROFILE_NAME" '
+resolve_profile() {
+  [[ -f "${MOZ_DIR}/profiles.ini" ]] || return 0
+  awk -F= -v name="$PROFILE_NAME" -v moz="$MOZ_DIR" '
     /^\[/{n=""; p=""; rel=1}
     $1=="Name"{n=$2}
     $1=="IsRelative"{rel=$2}
     $1=="Path"{p=$2}
-    n==name && p!="" {print (rel=="1" ? ENVIRON["MOZ_DIR"] "/" p : p); exit}
-  ' "${MOZ_DIR}/profiles.ini")"
+    n==name && p!="" {print (rel=="1" ? moz "/" p : p); exit}
+  ' "${MOZ_DIR}/profiles.ini"
+}
+
+profile_path="$(resolve_profile)"
+if [[ -z "$profile_path" ]]; then
+  log "creating profile '${PROFILE_NAME}'"
+  "${FIREFOX_DIR}/firefox" -CreateProfile "$PROFILE_NAME" >/dev/null 2>&1
+  profile_path="$(resolve_profile)"
 fi
 [[ -n "$profile_path" && -d "$profile_path" ]] || die "could not resolve profile path for '${PROFILE_NAME}'"
 log "profile: ${profile_path}"
