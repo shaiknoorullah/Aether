@@ -50,7 +50,6 @@
 - [Security](#security)
 - [License](#-license)
 - [Acknowledgements & Prior Art](#acknowledgements--prior-art)
-- [References](#references)
 
 ---
 
@@ -73,7 +72,7 @@ The browser quietly became the operating system of modern work. We write code in
 Four structural problems compound inside that window:
 
 1. **Browsers optimize for engagement, not intention.** Tabs, notifications, infinite feeds, and frictionless novelty are features when the goal is time-on-site. They are hazards when the goal is finishing the thing you opened the browser to do.
-2. **Tool sprawl turns a workday into a switching tax.** Knowledge work is now spread across dozens of web apps. The average company runs **89 different applications**[⁷], and every jump between them carries a cognitive cost most people never measure.
+2. **Tool sprawl turns a workday into a switching tax.** Knowledge work is now spread across dozens of web apps. The average company runs **89 different applications**, and every jump between them carries a cognitive cost most people never measure.
 3. **The interface is hostile to focus by default, and willpower is not a fix.** The modern browsing environment is structurally engineered to fragment attention. The only durable answer is to *redesign the environment* — which is precisely what a browser, the layer everything else renders inside, is uniquely positioned to do.
 4. **Users want AI, but don't trust it — and power is fragmented.** Calm UX lives in one browser, hackability in another, privacy in a third, AI in a fourth, and *none* of them are unified, local-first, agent-safe, and trustworthy. People are forced to choose between an AI that helps and an AI that doesn't sell them out. They shouldn't have to.
 
@@ -81,7 +80,7 @@ Four structural problems compound inside that window:
 
 ## The ADHD Problem
 
-For the ~**6%** of adults with ADHD[⁸] — and the far larger number who are undiagnosed or otherwise neurodivergent — every one of the problems above is amplified, and several new ones appear. ADHD is, at its core, a disorder of *executive function*: the mental machinery for **task initiation, sustained attention, working memory, time perception, and impulse control**[¹¹]. The browser stresses every single one of those systems at once.
+For the ~**6%** of adults with ADHD — and the far larger number who are undiagnosed or otherwise neurodivergent — every one of the problems above is amplified, and several new ones appear. ADHD is, at its core, a disorder of *executive function*: the mental machinery for **task initiation, sustained attention, working memory, time perception, and impulse control**. The browser stresses every single one of those systems at once.
 
 What that looks like in practice:
 
@@ -102,20 +101,20 @@ The reframe Aether is built on: **these are not character flaws, and the answer 
 
 **How much we live in the browser:**
 
-- The average adult spends roughly **7 hours a day** on screens in the US, and about **6h40m globally — close to 40% of all waking hours**[¹][²]. By some surveys, US adults are **online over 10 hours a day**[³].
+- The average adult spends roughly **7 hours a day** on screens in the US, and about **6h40m globally — close to 40% of all waking hours**. By some surveys, US adults are **online over 10 hours a day**.
 - The web browser is the connective tissue of that time: a large majority of internet users spend their sessions on research, communication, work, and content — the four things a browser mediates.
 
 **What fragmentation costs everyone:**
 
-- After a single interruption, a knowledge worker takes an average of **23 minutes and 15 seconds** to fully refocus on the original task — the landmark finding from Gloria Mark's UC Irvine research (*The Cost of Interrupted Work*, CHI 2008)[⁴].
-- The average time spent on a single screen before switching has **collapsed from ~2.5 minutes (2004) to ~47 seconds**, and roughly **44% of interruptions are self-generated**[⁵].
-- Most knowledge workers get only about **one hour of true focus per day**[⁶], while juggling a toolset that averages **89 applications** per company[⁷].
+- After a single interruption, a knowledge worker takes an average of **23 minutes and 15 seconds** to fully refocus on the original task — the landmark finding from Gloria Mark's UC Irvine research (*The Cost of Interrupted Work*, CHI 2008).
+- The average time spent on a single screen before switching has **collapsed from ~2.5 minutes (2004) to ~47 seconds**, and roughly **44% of interruptions are self-generated**.
+- Most knowledge workers get only about **one hour of true focus per day**, while juggling a toolset that averages **89 applications** per company.
 
 **What it costs the ADHD population specifically:**
 
-- Adults with ADHD report an average of **21.6 more lost-productivity days per year** ("presenteeism") than their peers, driven directly by inattention, disorganization, and executive dysfunction[⁸].
-- The total estimated US societal cost attributed to adult ADHD is roughly **$122.8 billion per year**[⁸].
-- Adults with ADHD are **~60% more likely to be fired**, **~300% more likely to quit a job impulsively**[⁹], earn an estimated **17–33% less** than peers[⁹][¹⁰], and have an employment rate of about **67% vs. 87%** for non-ADHD peers with a degree[¹⁰].
+- Adults with ADHD report an average of **21.6 more lost-productivity days per year** ("presenteeism") than their peers, driven directly by inattention, disorganization, and executive dysfunction.
+- The total estimated US societal cost attributed to adult ADHD is roughly **$122.8 billion per year**.
+- Adults with ADHD are **~60% more likely to be fired**, **~300% more likely to quit a job impulsively**, earn an estimated **17–33% less** than peers, and have an employment rate of about **67% vs. 87%** for non-ADHD peers with a degree.
 
 **The thesis, in one line:** if ~40% of your waking life happens in the browser, and the browser is the single environment where focus, distraction, research, memory, and every work tool collide — then a browser deliberately designed to protect executive function isn't a nice-to-have. It's the highest-leverage intervention available.
 
@@ -271,7 +270,7 @@ Aether is researched against five concrete user segments, in priority order:
 - **AI re-grounding** for resilient replay: when a selector breaks because a live site changed, an agent re-finds the target instead of the workflow failing.
 - **Agent-safe web access**: agents act through a sandboxed, verified control plane (IPC / CDP / WebSocket), with reliability and graceful degradation as first-class concerns.
 - **Sandboxed workloads** run in containers under your orchestrator.
-- **Optional stealth/scraping** for automation that must survive bot detection — delivered by spinning up a **dedicated, isolated engine-level tool** (e.g. **Camoufox** / **Nodriver**) that Aether orchestrates, kept deliberately separate from your daily-driver identity. *(True fingerprint spoofing is engine-level work and a moving target[¹²]; Aether integrates the right tool rather than compromising the main browser.)*
+- **Optional stealth/scraping** for automation that must survive bot detection — delivered by spinning up a **dedicated, isolated engine-level tool** (e.g. **Camoufox** / **Nodriver**) that Aether orchestrates, kept deliberately separate from your daily-driver identity. *(True fingerprint spoofing is engine-level work and a moving target; Aether integrates the right tool rather than compromising the main browser.)*
 
 ### 🧠 Learning & Knowledge Capture
 - **Recursive graph/canvas capture**: highlight anything → save it as a node with a backlink to the source, AI-auto-tagged, droppable onto a board or straight into your **Logseq/Obsidian** graph. Every node can be a single note *or* an infinitely nestable graph of its own.
@@ -298,7 +297,7 @@ Aether is researched against five concrete user segments, in priority order:
 
 ## 📐 The Feature Matrix (Evidence-Backed)
 
-Aether is researched before it is built. Every feature is scored with **RICE** (Reach × Impact × Confidence ÷ Effort), classified with **MoSCoW** (Must/Should/Could/Won't), and typed with the **Kano** model — backed by a source URL. The full matrix lives in [`docs/feature-matrix.md`](docs/feature-matrix.md) (142 candidates → 50 council-scored → 30 detailed cards). The top of the build backbone:
+Aether is researched before it is built. Every feature is scored with **RICE** (Reach × Impact × Confidence ÷ Effort), classified with **MoSCoW** (Must/Should/Could/Won't), and typed with the **Kano** model. The full matrix lives in [`docs/feature-matrix.md`](docs/feature-matrix.md) (142 candidates → 50 council-scored → 30 detailed cards). The top of the build backbone:
 
 | Rank | Feature | Category | RICE | MoSCoW |
 |------|---------|----------|------|--------|
@@ -512,15 +511,13 @@ Shipping in vertical slices — each milestone is usable on its own. Sequencing 
 
 ## Research Methodology
 
-Aether's defining phase is **research, not code** — the most thorough phase of the project by design. Feature discovery runs as a **multi-agent research swarm**: departments (discovery, competitive intelligence, market/domain, technical/architecture) feed an **executive council** (Product Strategist, Technical Architect, User Advocate, Security Auditor, Devil's Advocate) that scores every candidate with **RICE + MoSCoW + Kano**, with **Chain-of-Verification** validation and an evidence URL behind every claim.
-
-- **Wave 1 (v1, complete):** 5-wave pipeline → 16 reports, 142 candidates, council scoring. Findings live in [`docs/research-data/`](docs/research-data/) and the assembled [`docs/feature-matrix.md`](docs/feature-matrix.md). *(Preserved — never overwritten.)*
-- **Wave 2 (v2, complete):** a **20-team** deep-research expansion driven by the **Feynman** research CLI, orchestrated team-by-team via **agent-manager** tmux sessions and a Claude **workflow**. Teams span the five user segments (now including a dedicated **ADHD/executive-function** team), six competitive tracks, four market/domain tracks, three technical/architecture tracks (including the **engine-decision** team), and two synthesis/red-team tracks. Output lands in `docs/research-v2/` and `outputs/`, additively.
-
-Tooling: [Feynman](https://www.feynman.is) (`deepresearch` / `compare` / `review`), the `agent-manager` lifecycle skill, Postgres/Redis for structured findings (when provisioned), and Memory-Keeper for context snapshots.
+Aether was researched before it was built — two multi-agent research waves,
+feature matrices, competitive and technical deep-dives. The full corpus, method,
+and sources live in [`docs/`](docs/) and [`outputs/`](outputs/); the assembled
+matrices are [`docs/feature-matrix.md`](docs/feature-matrix.md) and
+[`docs/research-v2/feature-matrix-v2.md`](docs/research-v2/feature-matrix-v2.md).
 
 ---
-
 ## The Long-Term Vision
 
 A world where the most-used piece of software in a person's day is *on their side* — where the environment in which we think, build, and learn is designed to protect attention rather than harvest it, and where AI assistance never costs you your sovereignty.
@@ -602,30 +599,3 @@ Aether stands on the shoulders of projects that got pieces of this right, and bo
 - **The research that grounds this project:** Gloria Mark and colleagues at UC Irvine, whose work on interruption and attention gives the problem its shape.
 
 ---
-
-## References
-
-1. *Average Screen Time Statistics 2026* — DemandSage. https://www.demandsage.com/screen-time-statistics/
-2. *Screen Time Statistics* — Crown Counseling (global average; ~40% of waking hours). https://crowncounseling.com/statistics/screen-time/
-3. *Americans now spend 10 hours online every day* — Optimum survey via Fox News. https://www.foxnews.com/tech/americans-now-spend-10-hours-online-every-day
-4. *Context switching cost: the 23-minute refocus* — summary of Gloria Mark et al., *The Cost of Interrupted Work* (CHI 2008) & *No Task Left Behind?* (CHI 2005). https://contextcost.com/
-5. *It Takes 23 Minutes to Refocus After One Distraction (2026)* — attention-span collapse to 47s; ~44% self-generated interruptions. https://pomogolo.com/blog/23-minute-refocus-cost
-6. *Every Distraction Costs You 23 Minutes* — RescueTime (2020): ~1 hour of true focus/day. https://tctecinnovation.com/blogs/daily-blog/every-distraction-costs-you-23-minutes
-7. *Context Switching Costs $450B/Year* — average company uses 89 applications. https://www.waymakeros.com/learn/context-switching-costs-450b
-8. *50+ Essential Adult ADHD Statistics (2025–2026)* — Huntington Psychological Services (CDC 6.0% / ~15.5M US adults; global 6.76% / ~366.3M; 21.6 lost-productivity days/yr; ~$122.8B/yr US cost). https://huntingtonpsych.com/blog/adult-adhd-statistics
-9. *ADHD Statistics and Facts* — ADHDAdvisor.org (60% more likely fired; 300% more likely to quit impulsively; up to 33% lower earnings). https://www.adhdadvisor.org/learn/adhd-statistics-and-facts
-10. *ADHD Employment Statistics (2025)* — MyDisabilityJobs (employment 67% vs 87%; ~17% lower income). https://mydisabilityjobs.com/statistics/adhd-employment/
-11. *Workplace Realities of ADHD* — NCDA (core challenges: task initiation, focus, time management). https://www.ncda.org/aws/NCDA/pt/sd/news_article/603220/
-12. *AI Browser Automation in 2026: Camoufox, Nodriver & Stealth* — engine-level fingerprint spoofing as a separate, specialized concern. https://www.proxies.sx/blog/ai-browser-automation-camoufox-nodriver-2026
-
-> **Market figures** (Chrome share, switching intent, Brave MAU, Arc's wind-down, personalization demand) are drawn from Aether's own competitive research; see [`docs/research-data/`](docs/research-data/), [`docs/competitive-landscape.md`](docs/competitive-landscape.md), and [`outputs/`](outputs/) for the full sourced evidence trail. The Wave-2 research pass refreshes and re-verifies these.
-
----
-
-<div align="center">
-
-**Aether** — *because the place you spend most of your life should be on your side.*
-
-Built in the open, for the brains and the builders the defaults forgot.
-
-</div>

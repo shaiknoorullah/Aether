@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **This is not a startup. Not a product. I will never monetize it.** If other people adopt it the way Zen or LibreWolf got adopted, cool; if nobody ever installs it but me, it still succeeded.
+Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **Not a startup, never monetized** — but personal-first, not personal-only: I build what I daily-drive, and the hope is it grows into something the community adopts, the way Zen and LibreWolf did. My own daily use stays the requirements filter until real users exist.
 
 Honest status: **v1.1.0 is built and working** — the full adoption floor (modal keys+palette, statusbar widgets, pywal theming, vertical tabs+graveyard, workspaces+persistence, EF supports, local-AI sidebar) plus site boosts (`:zap`, AI `:boost`) and context resurrection. ~5,100 runtime-path lines, 322 unit tests, screenshot-verified visual suite, zero deps/build/patches. Current milestone: the 30-day daily-drive gate (`docs/execution-plan.md` Phase 2).
 
