@@ -113,7 +113,9 @@ overlay/
   prefs/user.js           telemetry-off + hardening + vertical-tab/restore prefs
   config/aether.toml      keymap + options → ~/.config/aether/aether.toml
   loader/                 our autoconfig loader (replaces fx-autoconfig)
-  specs/                  f1–f7 + b1–b3 feature specs (behavior + tests + non-goals)
+  specs/                  feature specs (behavior + tests + non-goals)
+                          f1–f7 v1.0.0 · b1–b3 v1.1.0 (shipped)
+                          r1–r5 v1.2.0 · x1–x4 v1.3.0 (written, not built)
   test/                   unit (node --test, zero deps) + visual (real browser)
   chrome/
     userChrome.css        zero-chrome, statusbar, palette, sidebar theming

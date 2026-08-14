@@ -62,6 +62,61 @@ Only after the gate passes: agent runtime (decision #2 control plane — MCP →
 
 Also post-gate: the **personalized-web ladder** (`docs/research/openui-ai-personalized-web.md`) — Tier 0 deterministic theming ships early inside floor item 3 (pywal/base16 + Zen-Boosts-style per-domain zaps + `base-select` UA theming when Gecko ships it); Tier 1 AI-generated CSS-only site boosts (local model → dotfile → deterministic apply) follows the local-AI sidebar; Tier 2 semantic calm-views and Tier 3 generative own-surface UIs (wandb-OpenUI patterns) are post-gate. Generated JS near page context is a different trust class — per-case consent, always.
 
+## The Version Roadmap (post-floor)
+
+Set 2026-08-14, after the first day of actually daily-driving v1.1.0. Direction: **port Nyxt's ideas in Aether's idiom — functional and UX-first — with Hyprland-class riceability.** Ideas, not a feature checklist: "every Nyxt feature" is unbounded and collides with the prime directive, and Nyxt's own weaknesses (developer-designed discovery, WebKitGTK compat) are the parts to leave behind.
+
+A version is **complete or it isn't**. No partial ticks, no per-feature marks scattered through the docs — the build matrix (`docs/feature-matrix-build.md`) is the one place status lives.
+
+### v1.2.0 — The Rice Pass *(specs written)*
+
+The gate is psychological before it is functional; a browser that can't be tuned live won't hold me for 30 days.
+
+| Spec | Feature |
+|---|---|
+| `r1` | Live config reload — `:reload` + save-to-apply watcher, restart-only domains named honestly |
+| `r2` | Style layer beyond colour (`[style]`: radius, gaps, opacity, blur, fonts) + motion on four surfaces |
+| `r3` | Which-key — discovery by using the keyboard, not by reading a manual |
+| `r4` | **Panel primitive + tab panel** — vertical tabs cut; tabs become searchable, MRU, taggable, markable |
+| `r5` | Settings panel — layered `aether.local.toml`, provenance per row, never rewrites my dotfile; DoH |
+
+The glue refactor rides along: anything touched comes out of `aether.uc.js` into a pure module. No separate refactor milestone — v1.1.0's audit flagged glue growth as the pressure point, and this version touches most of it anyway.
+
+### v1.3.0 — The Extension Pass *(specs written)*
+
+| Spec | Feature |
+|---|---|
+| `x1` | The command facade — behavior as files (`commands/*.js`), frozen API, named hooks, risk annotation |
+| `x2` | Mods — bundled style + commands + settings, and the style/code trust tiers |
+| `x3` | Fuzzy matching + frecency — a documented v1.0.0 cut, reversed on logged evidence |
+| `x4` | The GitHub mod — the reference consumer that proves the API before it freezes |
+
+### v1.4.0 — Panel Sources *(committed scope; specs at approach)*
+
+Bookmarks (flat, tags only, no hierarchy), history, and downloads as sources on r4's primitive. Marks and pins generalized across sources. Nothing here needs new UI — that is the return on building the primitive first.
+
+### v2.0.0 — `aetherd` *(committed scope; specs after a daemon spike)*
+
+A local Rust daemon speaking one loopback API. Integration weight lives here, off the rebase treadmill, and the overlay's loopback-only network rule (f7) never has to bend.
+
+- **MPRIS media** first — now-playing widget, mini-player panel, unified control across browser tabs / Spotify / self-hosted, plus a PipeWire-tapped visualizer. Smallest adapter, harmless failure modes, proves the whole architecture end to end.
+- **Rules engine + auto-registration** — the browser as sensor for taskwarrior/timewarrior: URL pattern + dwell + focus-session context → a task record for the interstitial work I never log.
+- **Time-data enrichment** — the browser's ground truth (url, title, workspace, focus task) fixes ActivityWatch's largest blind spot *before* any model is involved. AI fills only what rules can't reach, and **measured and inferred never mix**: two tiers, confidence on every inferred span, reports stating what fraction was reconstructed.
+- **VPS surfaces** (powerhouse, gnosis) — daemon holds the credentials.
+- **Per-workspace proxy** — workspace switch changes network identity along with cookies. Needs a spike on `nsIProtocolProxyService` channel filters before it is promised.
+- **Encryption at rest** — reuse decision #3's Yjs E2EE pattern; keys in the daemon, never in chrome.
+
+### v2.1.0 — The Agent *(committed scope; specs after v1.3 lands)*
+
+**The registry is the API.** Everything I can do is a registry command, so the agent's tool list is a projection of the registry rather than a parallel surface that drifts. MCP serializes it; page interaction reuses the hint descriptor pipeline; one dispatcher means one complete action log.
+
+- Capability tiers as `risk` annotations on registry entries (already added in x1), with policy as data in `[agent.consent]`.
+- **Plan-as-workflow, not a live loop** — the model proposes, I approve, a deterministic script executes. A poisoned page can corrupt a plan I am about to read; it cannot silently act.
+- **Taint tracking** — page content entering context flips a per-conversation flag; tainted sessions escalate consent even for auto-classed commands. The only mechanism that maps to the real threat: *this instruction may not have come from me.*
+- **The focus nudge** — armed only inside an explicit `:focus` session, drift-triggered not timer-triggered, one dismissible offer, never escalating, never counted, lexicon-swept. Hyperfocus is not deviation.
+
+Prompt injection stays unsolved and this design assumes it stays unsolved.
+
 ## Standing Drills
 
 - **Monthly**: Firefox update + rebase (or autoconfig no-op check), cost logged.

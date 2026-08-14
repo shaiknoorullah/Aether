@@ -47,6 +47,9 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 ## Repository Map
 
 - `README.md` — public front page (personal-tool framing, current)
+- `docs/feature-matrix-build.md` — **the one place build status lives**; a version is complete or it isn't
+- `docs/friction-log.md` — the Phase 2 daily-drive gate log; it ranks what gets built after v1.3.0
+- `docs/execution-plan.md` — phases + the post-floor version roadmap (v1.2.0 → v2.1.0)
 - `docs/research-v2/feature-matrix-v2.md` — v2 matrix (scoring is historical; technical content still useful)
 - `docs/feature-matrix.md` — v1 matrix (preserved)
 - `docs/research-data/`, `docs/research-v2/` — v1/v2 pipeline outputs
@@ -59,10 +62,11 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Next
 
-1. **The daily-drive gate** (Phase 2): 30 days as my default browser, friction log, one line per annoyance. Every entry becomes a fix, a cut, or evidence for what ships next.
-2. Post-gate, in this order: agent runtime (decision #2 control plane), deeper personalized-web tiers, sync (resolving Iroh vs js-libp2p then, not before).
-3. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
-4. Monthly rebase drill: re-run `overlay/install.sh` after each Firefox update (pacman hook), log the cost.
+1. **The daily-drive gate** (Phase 2): 30 days from 2026-08-14 as my default browser, friction log, one line per annoyance. Every entry becomes a fix, a cut, or evidence for what ships next.
+2. **v1.2.0 (rice) then v1.3.0 (mods)** — specs written (`overlay/specs/r1–r5`, `x1–x4`). Direction: port Nyxt's *ideas* in Aether's idiom, UX-first, Hyprland-class riceable. Not Nyxt's feature list — that's unbounded and eats the budget.
+3. Then v1.4.0 panels, v2.0.0 `aetherd` (integration weight off the rebase treadmill), v2.1.0 agent (the registry *is* the API). Sync resolves Iroh vs js-libp2p when it's built, not before.
+4. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
+5. Monthly rebase drill: re-run `overlay/install.sh` after each Firefox update (pacman hook), log the cost.
 
 ## Tools & Infrastructure
 
