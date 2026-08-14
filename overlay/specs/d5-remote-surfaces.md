@@ -28,6 +28,10 @@ panel    = ["jobs[].name", "jobs[].state", "jobs[].updated"]
 
 Secrets are **named, never inlined**: `auth` references a key in a separate `secrets.toml` (mode `0600`) or, preferably, a command (`auth = "cmd:pass show aether/powerhouse"`) so the token can live in `pass` or a keyring and never sit in a config file at all. A config file with a token in it gets committed to dotfiles eventually; a config file with a *reference* cannot leak one.
 
+`cmd:` is arbitrary command execution as the user, so it is subject to d1's capability model rather than exempt from it: the endpoints adapter must hold an explicit **`exec` grant** for `cmd:` to resolve at all, and `cmd:` endpoints 404 without it. It runs as argv (never a shell string), with a 5-second timeout — a `pass` invocation blocking on pinentry with no TTY would otherwise hang the daemon at startup — and stderr is discarded. Note the symmetry with the config file itself: the same file that must not hold tokens *does* hold `cmd:` strings, so `aetherd.toml` is refused if it is group- or world-writable.
+
+The `net:<host>` grant is likewise computed from the configured endpoint URLs at load, not declared as `net:*` — otherwise the grant that d1 calls "the act of trust" would be decorative for the one adapter that talks to arbitrary hosts.
+
 ### Polling and failure
 
 The daemon polls at `interval`, caches the last good response with its timestamp, and streams updates over d1's event socket. Failure semantics matter more than success ones:
@@ -41,6 +45,14 @@ The daemon polls at `interval`, caches the last good response with its timestamp
 - **Widget**: one `remote:<name>` builtin per endpoint, rendering the daemon-formatted string, empty when the endpoint is disabled or has never succeeded.
 - **Panel**: `:remote <name>` opens r4's panel over the `panel` projection — rows with x3 filtering. Read-only in this pass.
 - **Actions** are opt-in per endpoint and explicitly declared (`actions = [{name = "restart", method = "POST", path = "/jobs/{id}/restart"}]`). Every declared action is `mutate-remote` class, and there are no implicit ones — a GET-only endpoint can never be made to write by a browser-side bug.
+
+**Captures are encoded and re-checked, not interpolated.** `{id}` arrives from the browser, so raw interpolation turns one declared action into arbitrary authenticated path reach: `remote_action restart "../../admin/shutdown?confirm=1#"` would resolve to `POST /admin/shutdown?confirm=1` **with the bearer token attached**, and under a1's policy that is one `confirm` line an injected agent needs you to skim. So each capture is percent-encoded as a single path segment, with `/`, `?`, `#`, `%`, `..` and control characters **rejected outright** rather than encoded, and the resolved URL is asserted to have the same host and the declared path prefix before the request goes out. Method restriction without target restriction is not a restriction.
+
+**TLS is specified, because "the daemon does the TLS" is not a specification.** Certificate and hostname verification are **not disableable — no flag, no config key, no debug mode**. A private CA is supported per endpoint via `ca_bundle = "<path>"`, mTLS via `client_cert`/`client_key` (mode-checked like the token file), TLS 1.2 minimum. Without this, the first encounter with a self-signed cert on `powerhouse.internal` at 1am ends in `danger_accept_invalid_certs(true)` — which silently turns `https://` into unauthenticated transport while the scheme check still passes, and hands the bearer token to anyone on the path. A build-level assertion checks that `danger_accept_invalid_*` appears nowhere in the crate.
+
+**Redirects**: followed only when scheme, host **and** port are all identical to the original request, maximum three, with `Authorization` stripped on any redirect that is not byte-identical in origin. A same-host https→http downgrade is a token in cleartext, so "same host" alone is not the rule.
+
+**Responses are bounded**: `max_response_bytes` per endpoint (default 1 MiB) enforced on the *stream*, a JSON depth limit, and a cap on projected rows. The daemon holds VPS credentials and (d7) decryption keys — making it OOM-killable by the endpoint it trusts is the worst available failure mode, and a slow multi-gigabyte body inside the timeout window would do it.
 
 ### Mesh and reachability
 
@@ -57,7 +69,7 @@ New registry commands: `remote` (`read`), `remote_action` (`mutate-remote`, alwa
 
 ## 3. Pure vs glue
 
-- **`aether-remote.sys.mjs`** (pure, overlay): `renderWidget(state)` incl. the stale-marking rule; `projectRows(data, projection)` → panel rows from a dotted-path projection, tolerant of missing paths; `staleness(lastOk, now)`.
+- **`aether-remote.sys.mjs`** (pure, overlay): `renderWidget(state)` incl. the stale-marking rule; `projectRows(data, projection)` → panel rows from a dotted-path projection, tolerant of missing paths; `staleness(lastOk, now)`. **Every daemon-supplied string is bounded and stripped in the overlay** (d1's rule) — including the daemon-rendered widget string, which is interpolated from remote data and therefore attacker-influenceable; the f6 sweep covers our static copy only, and that limit is stated rather than implied.
 - **daemon (Rust)**: `endpoints.rs` (definition parsing, secret resolution via file or command, poll loop, backoff), `http.rs` (TLS client with a pinned timeout, no redirect-following to a different host).
 
 ## 4. Unit tests (behavioral)
@@ -74,9 +86,13 @@ New registry commands: `remote` (`read`), `remote_action` (`mutate-remote`, alwa
 7. `auth = "cmd:…"` executes as argv (never a shell string) and trims exactly one trailing newline
 8. **a resolved secret never appears in any log line, error message, or event payload** — asserted by seeding a sentinel secret and grepping all emitted output
 9. a non-2xx or timed-out poll retains the last good value and marks it stale; backoff reaches but does not exceed the ceiling
-10. redirects to a different host are refused (a redirect is not a place to re-send a bearer token)
+10. redirects: a different host, a different **port**, and a same-host **https→http downgrade** are each refused; a chain longer than three is refused; `Authorization` is stripped on any non-identical-origin redirect
 11. an endpoint declaring no `actions` 404s every write attempt, including well-formed ones
 12. endpoint config with a non-https url is refused unless the host is loopback (a plaintext token on a network path is a bug, not a preference)
+13. **capture injection**: `{id}` values containing `..`, `/`, `?`, `#`, `%`, a null byte, and an authority (`@evil.tld`) are each rejected; a legal value is percent-encoded as one segment; the resolved URL is asserted to match the declared host and path prefix before sending
+14. a self-signed certificate with no configured `ca_bundle` fails the endpoint with a named error and **does not send the token**; the crate contains no `danger_accept_invalid_*`
+15. `cmd:` without an `exec` grant 404s; with one, it runs as argv, times out at 5s, and its stderr never reaches an event payload
+16. a response exceeding `max_response_bytes` is abandoned mid-stream without buffering it, and a 10⁶-element array is truncated with an explicit marker rather than projected in full
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/k5-remote.sh`
 

@@ -18,6 +18,8 @@ The panel is **never** the reason a keystroke is delayed. It renders *alongside*
 
 **Root list**: `?` in normal mode (bindable; default `?` = `which_key`) shows the panel for the *empty* prefix — every top-level binding. That is the "what can I even do" surface, and it is the same renderer with a different prefix.
 
+It is also a **distinct state**, not the pending-prefix path with an empty string. `?` is an exact keymap match, so it fires as an action and the engine's pending buffer is empty — which is precisely the condition the "never a permanent HUD" guard forbids. So `shouldShow` takes an explicit `forced` flag, and the root list has its own dismissal rule: **any key closes it, and that key is then handled normally**. Without that, the root panel has no exit but `Escape` and no timeout, because there is no sequence to complete.
+
 **Modes**: normal mode only. Insert mode has no sequences; palette mode has its own completion UI; hint mode is already a labelled overlay. Rendering which-key over any of them would be noise competing with the thing you're doing.
 
 **Styling** is r2's vars — same radius, blur, motion, font. The fade-in *is* the affordance: an instant panel reads as an interruption, a 120ms fade reads as an offer.
@@ -36,7 +38,7 @@ New registry command: `which_key` — zero-arg, completable. `which_key_ms = -1`
 
 ## 3. Pure vs glue
 
-- **`aether-whichkey.sys.mjs`** (pure, Node-testable — no DOM/timers): `candidatesFor(keymap, prefix, registry)` → `[{remaining, command, description}]` sorted deterministically; `truncate(rows, max)` → `{rows, moreCount}`; `shouldShow(pendingKeys, whichKeyMs)` → boolean (the policy in one place, including the `-1` and `0` cases).
+- **`aether-whichkey.sys.mjs`** (pure, Node-testable — no DOM/timers): `candidatesFor(keymap, prefix, registry)` → `[{remaining, command, description}]` sorted deterministically; `truncate(rows, max)` → `{rows, moreCount}`; `shouldShow({pendingKeys, elapsedMs, whichKeyMs, forced})` → boolean. **`elapsedMs` is a parameter**, not something the glue's `setTimeout` decides — otherwise the threshold rule lives entirely in untested glue and the pure function can only answer "is this enabled", which is not the question.
 - **`aether-keys.sys.mjs`** (pure): exposes the pending sequence as readable state (it already holds it) — no behavioral change, no new timing.
 - **`aether-palette.sys.mjs`** (pure): registry entries gain the `description` field which-key, `:describe`, and r5's settings panel all read; `which_key` REGISTRY entry.
 - **`aether.uc.js`** (glue): one timer started when the pending sequence becomes non-empty and cleared on every resolution path; create/update/hide the panel element; row rendering as `textContent`.
@@ -51,8 +53,8 @@ New registry command: `which_key` — zero-arg, completable. `which_key_ms = -1`
 5. rows carry the registry `description` when present and fall back to the command name when absent — never `undefined`, never blank
 6. an unknown command referenced by the keymap (a typo, or a mod command not yet loaded) renders as a row with the raw command name rather than being silently dropped — a broken binding must be *visible*, that's the whole point of the feature
 7. `truncate` at `palette_max_items` → exact row count plus a `moreCount` of the remainder; never a partial final row
-8. `shouldShow`: `-1` never shows; `0` shows immediately; a positive value shows only past the threshold
-9. an empty pending sequence never shows (guard: which-key is not a permanent HUD)
+8. `shouldShow`: `-1` never shows; `0` shows immediately; a positive value shows only once `elapsedMs >= whichKeyMs`, asserted at the boundary from both sides with an injected elapsed value
+9. an empty pending sequence with `forced: false` never shows (guard: which-key is not a permanent HUD); with `forced: true` it shows the root list — the two states asserted separately, since the guard would otherwise forbid the `?` feature
 10. 200 synthetic `git:*` bindings under one prefix → still capped, still deterministic order, no unbounded work
 
 `overlay/test/unit/r3-config.test.mjs`:
@@ -66,8 +68,9 @@ New registry command: `which_key` — zero-arg, completable. `which_key_ms = -1`
 1. **panel after a prefix pause** — press `g`, wait past `which_key_ms`, shot shows `gg → top` and `gw → next workspace`
 2. **sequence completes, panel gone** — press `g` then `g`; shot shows the page scrolled to top and no panel
 3. **root list** — `?`, shot of the full top-level binding list, truncated with `+N more`
-4. **timing is unaffected** — `which_key_ms` set high enough that the panel never appears, then `gg` executed at normal speed: same result, proving the panel is decoration over existing state, not part of dispatch
+4. **timing is unaffected** — pause on `g` until the panel *is* up, then press the completing `g`: one shot asserts both that the action fired (page scrolled to top) and that the panel is gone. A run where the panel never renders exercises no panel code and would pass identically if which-key *were* on the dispatch path — it must be up for the test to mean anything.
 5. **disabled** — `which_key_ms = -1`, long pause on `g`, no panel, sequence still resolves
+6. **root list dismissal** — `?`, then press `j`: the panel closes *and* the page scrolls (the key is handled normally, not swallowed)
 
 ## 6. Non-goals (budget protection)
 

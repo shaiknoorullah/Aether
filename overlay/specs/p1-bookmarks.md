@@ -14,11 +14,31 @@
 
 **Record**: `{url, title, tags[], addedAt, lastOpenedAt, openCount}`. Title defaults to the page title and is renamable — a bookmark's name is mine, not the site's. `url` is the identity; there are no duplicates.
 
-**Panel**: `:bm` opens the bookmark source. Rows are `title — host [tags]`, ranked by x3 (match score plus frecency from `openCount`/`lastOpenedAt`). `:bm <query>` opens pre-filtered. Actions (`Tab` cycles): open, open-in-new-tab, tag, rename, copy-url, delete. Marks (`Space`) make tag-many and delete-many one act, which is the entire reason tags beat folders — a folder move is per-item by construction.
+**URL normalization, in full** — because the normalized URL *is* the identity, every unspecified axis is a silent duplicate-or-collision:
 
-**Tags**: free-form, lowercase-normalized, space-free (`rust-async`, not `rust async`). The tag editor is r4's panel over the existing tag set with fuzzy completion, so tags converge instead of fragmenting into `rust-async` / `async-rust` / `asyncrust`. New tags are created by typing one that doesn't exist and confirming — one extra keystroke, deliberately, because an accidental typo becoming a permanent tag is how tag sets rot.
+| Rule | Reason |
+|---|---|
+| lowercase scheme and host | case is not identity |
+| strip a default port (`:80`/`:443`) | same resource |
+| **keep the fragment** | see below |
+| keep the query verbatim | a query string usually *is* the page |
+| keep the path verbatim, including trailing slash | `/docs` and `/docs/` can genuinely differ |
+| `http` and `https` are **different** bookmarks | they are different origins |
+| `www.` is **not** stripped | it can be a different host |
 
-**Import**: `:bm_import` reads Firefox's own `places.sqlite` bookmarks for this profile once, flattening folders **into tags** — a bookmark in `dev/rust/async` arrives tagged `dev`, `rust`, `async`. That conversion is the whole migration story and it is one-directional; there is no ongoing sync with Firefox's bookmark store.
+The fragment stays, reversing the obvious rule. For a hash-routed app (`app.example.com/#/settings`) the fragment *is* the page, and for a deep anchor (`spec.html#section-4.2`) it is the reason for the bookmark — and since the stored identity is what gets opened, stripping it means `b` reports `already bookmarked` and then opens the top of the document instead of the section you meant. A duplicate bookmark is a mild annoyance; a bookmark that silently opens the wrong thing is a broken feature.
+
+**Panel**: `:bm` opens the bookmark source. Rows are `title — host [tags]`, ranked by x3 (match score plus frecency from `openCount`/`lastOpenedAt`). `:bm <query>` opens pre-filtered. Actions (`Tab` cycles): open, open-in-new-tab, tag, rename, copy-url, delete. Marks (`Ctrl+Space`) make tag-many and delete-many one act, which is the entire reason tags beat folders — a folder move is per-item by construction.
+
+**Deletion is confirmed, and it is a registry command.** Marking six rows and pressing `Enter` on the delete action destroys six bookmarks with no archive and no undo — in a project whose entire tab model rests on the argument that closing became safe *because* there is a graveyard, and where p3 gates delete-file behind a confirm for exactly this reason. So `bm_delete(url)` exists as a registry command with a `mutate-local` class (r4's registry-is-the-API rule), and the multi-delete action requires the confirm step. `bm_import` is `mutate-local` too.
+
+**Tags**: free-form, lowercase-normalized, space-free (`rust-async`, not `rust async`). The tag editor is an **inline input on the bookmark panel**, not a second panel — r4's primitive has no stack, no push/pop, and no way for an inner panel to return a value to a caller, and the marks selected on the outer panel would have no defined lifetime across an inner panel's `Esc`. Inline keeps the marks alive and needs nothing new from the primitive. Completion over the existing tag set uses x3, so tags converge instead of fragmenting into `rust-async` / `async-rust` / `asyncrust`; a tag that doesn't exist yet needs a second `Enter` to create, deliberately, because a typo becoming a permanent tag is how tag sets rot.
+
+**Import**: `:bm_import` reads Firefox's own bookmarks for this profile (via `PlacesUtils`, read-only), flattening folders **into tags** — a bookmark in `dev/rust/async` arrives tagged `dev`, `rust`, `async`.
+
+Import is **merge, never overwrite**, and re-runnable. "Once" is a description, not a mechanism: `bm_import` is a palette command you can run again, and re-running is the only way to pick up anything captured with `Ctrl+D`. So a second import unions tags, never touches an existing title, and never resets `addedAt` — an edit you made survives every subsequent import.
+
+**Two capture paths, acknowledged.** p2 argues that a second history store is never worth it, and this spec stands up a second *bookmark* store, so the asymmetry needs stating rather than implying: `Ctrl+D` and the summoned urlbar still write to Places, which `:bm` does not show. The reason to accept it is that Places bookmarks are folder-shaped and this feature's whole thesis is that folders are the problem; the cost is that `Ctrl+D` is a silent second inbox. Mitigation is one line — reserve `Ctrl+D` → `bookmark` in `[keymap.reserved]` so there is one capture path — and it is taken.
 
 **Storage**: `<profile>/aether-bookmarks.json`, atomic writes (f4's `tmpPath` pattern), no cap — bookmarks are small and deleting them is my job, not a ring buffer's.
 
@@ -31,21 +51,25 @@ enabled = true
 [keymap.normal]
 "b" = "bookmark"
 "B" = "bookmark_tag"
+
+[keymap.reserved]
+"C-d" = "bookmark"     # one capture path, not two
 ```
 
-New registry commands: `bookmark`, `bookmark_tag`, `bm`, `bm_import` — `bookmark`/`bookmark_tag` are `mutate-local`, `bm` is `read`.
+New registry commands: `bookmark`, `bookmark_tag`, `bm`, `bm_import`, `bm_delete(url)`, `bm_rename(url, title)`, `bm_tag(url, tags)` — `bm` is `read`, the rest `mutate-local`. Every panel action has a command, per r4's rule.
 
 ## 3. Pure vs glue
 
 - **`aether-bookmarks.sys.mjs`** (pure): `add(store, {url, title, now})` → new store (dedupe by normalized url); `setTags(store, url, tags)` with normalization + dedupe; `rename`, `remove`; `rows(store)` → x3-shaped candidates with frecency fields; `allTags(store)` → sorted tag set with counts; `serialize`/`deserialize` with hostile-input guards (b3 pattern); `normalizeUrl(url)` — strip fragment-only differences, keep query (a query string usually *is* the page).
-- **`aether-panel.sys.mjs`** (r4): reused unchanged.
+- **`aether-panel.sys.mjs`** (r4): reused, including `replaceRows` after a delete or tag so the row set stays honest without closing the panel.
 - **`aether-match.sys.mjs`** (x3): reused for both bookmark rows and tag completion.
-- **`aether.uc.js`** (glue): the store file, debounced atomic write, `places.sqlite` read for import (read-only, via the existing Places API rather than raw SQLite).
+- **`aether-strings.sys.mjs`**: capture confirmation, already-bookmarked, delete confirm, tag-editor copy — lexicon-swept, exports shaped for f6 test 11's harness.
+- **`aether.uc.js`** (glue): the store file, debounced atomic write with `backupFile`, Places read for import (read-only, through `PlacesUtils`, never opening the file directly).
 
 ## 4. Unit tests (behavioral) — `overlay/test/unit/p1-bookmarks.test.mjs`
 
-1. `add` creates a record with defaults; adding the same url twice yields one record with an updated timestamp, never a duplicate
-2. `normalizeUrl`: differing fragments collapse to one bookmark; differing query strings do **not** (asserted both ways — this is the judgement call, so it is pinned)
+1. `add` creates a record with defaults; adding the same url twice yields one record with an updated timestamp, never a duplicate — and **re-`b` on a renamed bookmark does not clobber the rename**
+2. `normalizeUrl`, one case per row of the table: scheme/host case collapse; default port stripped; **differing fragments are different bookmarks** (asserted with both a hash-route and a deep anchor); differing queries differ; `http` ≠ `https`; `www.` preserved; trailing slash preserved
 3. `setTags` normalizes case and rejects whitespace-containing tags; duplicate tags collapse; tag order is stable across writes
 4. `rename` changes the title and leaves the url identity intact; the original page title is not retained (the rename *is* the title — no dual display here, unlike r4's tabs, because a bookmark has no live page to contradict it)
 5. `remove` deletes exactly one record; removing a non-existent url is a no-op, not a throw
@@ -54,10 +78,12 @@ New registry commands: `bookmark`, `bookmark_tag`, `bm`, `bm_import` — `bookma
 8. serialize/deserialize round-trips byte-stably; hostile store (prototype keys, wrong types, non-array tags, 10k-char strings) drops entries individually without throwing or polluting
 9. a store from a future schema version deserializes what it understands and drops what it doesn't, never throwing (forward-tolerance, b3's rule)
 10. folder-to-tag conversion: `dev/rust/async` → exactly `["dev","rust","async"]`; a flat bookmark → no tags; a folder name with spaces → normalized, not dropped
+11. **import is merge, not overwrite**: import → rename + remove a tag → re-import → the rename survives, the removed tag is not resurrected, `addedAt` is unchanged, and a genuinely new bookmark arrives
 
 `overlay/test/unit/p1-config.test.mjs`:
-11. config sync guard for `DEFAULTS.bookmarks` and the `b`/`B` bindings
-12. all four commands in REGISTRY with descriptions and correct `risk` classes
+12. config sync guard for `DEFAULTS.bookmarks`, the `b`/`B` bindings, and the reserved `C-d`
+13. all seven commands in REGISTRY with descriptions and correct `risk` classes; every panel action maps to one (r4's inventory rule)
+14. all bookmark copy passes the f6 lexicon sweep
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/j1-bookmarks.sh`
 

@@ -18,18 +18,28 @@ This alone converts "Firefox — 6h" into per-site, per-workspace, per-task time
 
 ### Segmentation
 
-`segment(events, gapThreshold)` groups engagements into **blocks** — contiguous work on a coherent thing. A block is `{start, end, sites[], workspace, focus_task?, label?, source}`. Blocks are what a human reads; raw events are not.
+`segment(events, gapThreshold)` groups engagements into **blocks** — contiguous work on a coherent thing. A block is `{start, end, engagements[], sites[], workspace, focus_task?, label?, label_source, origin, reviewed}`. Blocks are what a human reads; raw events are not.
 
-### The two-tier rule — the part that matters
+**A block's duration is the sum of its engagements, never `end - start`.** Sub-threshold gaps are time nobody observed: thirty two-minute gaps in a normal day of tab-switching and phone-glancing is an hour that `end - start` would report as ground truth, and raising `gap_threshold` to reduce fragmentation makes it strictly worse. So the interstitial time is carried explicitly as `unobserved` and `summarize` reports it as a **third quantity** alongside measured and inferred.
 
-Every span carries `source: "measured" | "inferred"` and, when inferred, `confidence` and `basis` (what the inference was drawn from).
+### The tier rule — the part that matters
 
-- **Measured** = observed by the browser, or recorded by an AW watcher, or written by a d3 rule.
-- **Inferred** = produced by a model or by gap-filling heuristics.
+Every span carries an **immutable `origin`** and a separate `reviewed` flag:
 
-They are stored in separate fields, rendered in visually distinct styles, and **never silently merged**. Every report states what fraction of its total is inferred. An inferred span can be accepted (becoming measured, with `basis: "accepted"`), edited, or rejected — and rejection is the default outcome of ignoring it. Nothing becomes measured by the passage of time.
+- **`measured`** = observed by Aether's own instrumentation, or written by a d3 rule.
+- **`external`** = recorded by another AW watcher. *Not* measured: §1's whole premise is that AW's own data misfires, so classifying it as ground truth would contradict the paragraph that motivates this spec — and "an AW watcher wrote it" is an assumption about who wrote to a local port, not a provenance claim the daemon can verify.
+- **`inferred`** = produced by a model or by gap-filling, with `confidence` and `basis`.
 
-Without this rule, the feature is a machine that generates plausible fiction about my life and then invites me to make decisions from it. The rule is why this spec exists at all.
+Four rules make the separation hold, each of which closes a path that would otherwise launder inference into fact:
+
+1. **`accept` never rewrites `origin`.** It sets `reviewed: true`. A "measured" span with `basis: "accepted"` would be indistinguishable to every consumer from something I watched happen; after a week of 1am accepts the report reads `inferred: 0%` over a timeline that was 40% generated. `summarize` therefore reports three numbers — measured, reviewed-inference, unreviewed-inference — and the report header states all three.
+2. **Merging is lossless.** A merged block carries the measured/inferred **duration split** of its constituents rather than a single tier, so merge→accept cannot promote genuinely-inferred minutes and merge→split cannot permanently downgrade measured ones.
+3. **Only `measured` spans are ever written to ActivityWatch.** Inferred spans live solely in the daemon's store. Otherwise the round-trip is the laundering path: accept a 90-minute gap fill, it lands in AW, next week it reads back as ground truth. If inferred spans ever need to be in AW, they go in a separate `aether.inferred` bucket that the reader never promotes.
+4. **Nothing becomes measured by the passage of time** — and an unreviewed inference older than 14 days is **dropped**, so "rejection is the default outcome of ignoring it" is a mechanism rather than a hope.
+
+`inferredFraction` is **duration-weighted**, stated here because count-weighted would report 5% for a day with twenty short measured blocks and one six-hour gap fill.
+
+Without these rules, the feature is a machine that generates plausible fiction about my life and then invites me to make decisions from it. They are why this spec exists at all.
 
 ### Enrichment
 
@@ -48,6 +58,9 @@ A time-tracking report is the single easiest place in this browser to build the 
 - Report copy — templates *and model output* — passes the f6 lexicon sweep. Model output failing the sweep is **regenerated once, then dropped**; a report that scolds is not shown.
 - Reports state facts and totals. No targets, no goals, no comparisons against previous periods, no "productive vs unproductive" classification, no scores.
 - There is no streak, no daily total to beat, and no notification about a report.
+- **The model never emits a number.** Every total is template-injected from `summarize()`, and a post-check rejects any model output containing a digit that is not in the injected set. A model writing "roughly three hours on the aether repo" over blocks totalling 1h50m invents data, passes a lexicon sweep and a prompt-instruction test, and misstates the one thing the report exists to convey — while the header truthfully says 0% inferred, because the *blocks* were measured and only the prose lied.
+- **An AI-generated label is marked as one.** `label_source` is rendered distinctly, and the report header counts measured blocks carrying generated labels — the tier system covers spans, and a block with measured time and an invented label is otherwise indistinguishable from a hand-written one.
+- **Scheduled enrichment produces proposals, not spans.** A nightly pass writes into a review queue that expires; it never attaches inferences to the timeline unseen. Otherwise "inference is always an explicit act with a review step" and "on a schedule the daemon owns" are two sentences in the same spec that contradict each other.
 
 `:timeline` opens r4's panel over blocks for a chosen day: time, duration, label, source tier. Actions: label, accept/reject an inference, merge adjacent blocks, split, or open the block's sites as a tab group.
 
@@ -73,21 +86,25 @@ New registry commands: `timeline` (`read`), `timeline_label`, `timeline_accept`,
 ## 4. Unit tests (behavioral) — `overlay/test/unit/d4-timeline.test.mjs`
 
 1. `segment` groups events within the gap threshold and splits beyond it; boundary asserted exactly
-2. a block spanning a focus session inherits `focus_task`; one that doesn't, doesn't
-3. `gapsIn` finds gaps against the day range including leading/trailing gaps, and returns none for a fully covered day
-4. **`summarize` never sums measured and inferred into one number** — separate totals plus `inferredFraction`; a summary of only-inferred blocks reports 1.0
-5. `acceptInference` flips source to measured with `basis: "accepted"`; there is **no** code path that flips it any other way (inventory assertion over the module's exports)
-6. an inferred block that is neither accepted nor rejected stays inferred across serialize/deserialize — time does not launder it
-7. `serializeForModel` whitelist: given blocks carrying page text, query strings, fragments, form values, cookies and private-window flags, **none of those values appear** in the output (b2 test 2's fixture pattern, asserted by sentinel)
-8. urls are reduced to host+path in model input, asserted with a query-bearing url
-9. `buildReportPrompt` contains the instruction that output must be factual and non-evaluative
-10. report templates pass the f6 lexicon sweep; a *simulated model reply* containing "wasted" is rejected by the same sweep applied to output (the guard is on both sides, asserted)
-11. `mergeBlocks` of a measured and an inferred block yields an **inferred** block (the pessimistic rule — mixing can only downgrade)
-12. `splitBlock` preserves total duration exactly and carries source to both halves
+2. a block built from two 60s engagements four minutes apart reports **120s measured and 240s unobserved**, never 360s measured (the by-construction invention, pinned)
+3. a block spanning a focus session inherits `focus_task`; one that doesn't, doesn't
+4. `gapsIn` finds gaps against the day range including leading/trailing gaps, and returns none for a fully covered day
+5. **`summarize` reports three quantities** — measured, reviewed-inference, unreviewed-inference — plus `unobserved`, and never sums them; `inferredFraction` is **duration-weighted**, asserted with an asymmetric fixture (twenty short measured blocks, one six-hour inference) whose count-weighted and duration-weighted answers differ by far more than rounding
+6. `accept` sets `reviewed: true` and leaves `origin` unchanged; **no exported function mutates `origin`**, and a property test over random merge/split/accept/reject/serialize sequences asserts measured duration never increases except via an explicit accept — an export inventory alone is blind to `mergeBlocks` setting a field internally
+7. merge carries the duration split: merging a measured and an inferred block, then accepting, promotes only the inferred portion; merging then splitting returns the original split
+8. an unreviewed inference stays unreviewed across serialize/deserialize, and one older than 14 days is dropped by the reaper — time neither launders nor preserves it
+9. `serializeForModel` whitelist: given blocks carrying page text, query strings, fragments, form values, cookies and private-window flags, **none of those values appear** in the output (b2 test 2's fixture pattern, asserted by sentinel)
+10. urls are reduced to host+path in model input, asserted with a query-bearing url
+11. `buildReportPrompt` contains the instruction that output must be factual and non-evaluative, and every total in the prompt is template-injected
+12. report templates pass the f6 lexicon sweep; a *simulated model reply* containing "wasted" is rejected by the same sweep applied to output (the guard is on both sides, asserted)
+13. **a simulated reply containing a fabricated total is rejected** — a digit not present in the injected set fails the post-check, so a model cannot restate 1h50m as "roughly three hours"
+14. `splitBlock` preserves total duration exactly and carries the duration split to both halves
+15. `label_source` survives serialization and a generated label is counted in the report header
 
 `daemon/tests/aw.rs`:
-13. bucket events are written with the right type and no private-window data
-14. AW unreachable → events queue locally and backfill in order, with no duplicates after reconnect (asserted by replaying a reconnect)
+16. bucket events are written with the right type and no private-window data, and **only `measured` spans are written** — an inferred or reviewed-inference span never reaches AW (the laundering path, closed and asserted)
+17. AW unreachable → events queue locally and backfill in order. Idempotency is asserted against a **crash mid-backfill**, not a clean reconnect: 400 queued, 380 POSTed, process killed, restart → AW ends with 400 events and no duplicates. Requires an fsynced per-event watermark or a deterministic event id; a clean-reconnect replay exercises the path that was never at risk
+18. the local queue has a retention bound, so a long outage cannot grow it without limit
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/k4-timeline.sh`
 
@@ -111,3 +128,5 @@ Mock AW + mock gateway (f7 pattern), seeded event fixtures:
 - **No calendar integration, no meeting detection, no cross-device merge.**
 - **No export formats or BI dashboards** — the AW store and a JSON dump are the export.
 - **No notifications about time.** The clock and date widgets are the ambient anchor (f6); this feature never interrupts.
+
+**One acknowledged reversal.** f6's non-goals say "no session history, stats, totals, logs, or review surfaces — a session that ended is gone", marked as identity rather than deferral. This spec stores `focus_task` per block and builds totals and a review surface over it, so f6's rule is **superseded for time data**, deliberately: the point of the whole pipeline is that the browser is the only thing positioned to record what actually happened, and a focus task is the most valuable label available. What f6's rule was protecting against — a surface that judges you for how a session went — is preserved by the no-scores, no-comparisons, no-streaks rules above. f6 §6 is amended to say so rather than leaving two specs in silent contradiction. If the no-history rule is meant to hold instead, `{focus_task}` must be excluded from both d3's sinks and this bucket, and that is the alternative on the table.

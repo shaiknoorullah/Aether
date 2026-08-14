@@ -21,7 +21,7 @@ No `:focus <task>` running means no classification, no model call, no nudge, not
 Drift, not duration. A candidate nudge requires **all** of:
 
 1. dwell past `nudge_after` (default 4 minutes) on content unrelated to the task,
-2. relatedness below threshold — deterministic signals first: same workspace, same host as the task's earlier activity, a domain in the task's own history. Only if those are inconclusive does a local-model call classify the current title/host against the task name (`[ai]` rules, loopback, off-switch honored),
+2. relatedness below threshold, computed from **host and workspace only — never the page's `<title>`**. The title is page-controlled, which makes it a lever in both directions: a distraction site setting `<title>rebase drill</title>` scores itself related and becomes permanently exempt from the one support that would have caught it, and a page inducing an early false positive burns the single per-session offer (below) in the first five minutes. It is also the weakest signal available. Deterministic signals run first — same workspace, same host as the task's earlier activity — and only if those are inconclusive does a local-model call classify **host and workspace** against the task name (`[ai]` rules, loopback, off-switch honored). That call uses an **isolated context that is not f7's conversation**, so it neither taints the agent conversation nor becomes a second unlabelled path from page content to a model,
 3. no nudge already offered this session.
 
 **Hyperfocus is not deviation.** Three hours in one place is never a trigger — long dwell *on task* is the thing I'm protecting, and any rule that interrupts it would make this feature a net negative. There is no upper bound on time-on-task, deliberately, and there is no "you've been here a while" nudge of any kind.
@@ -42,7 +42,7 @@ still on “rebase drill”?  ↵ back  ·  c capture  ·  esc stay
 
 Not guidelines — properties enforced by tests, because good intentions decay under future edits:
 
-- **No counting.** The nudge writes no counter, no history, and no field that could later be aggregated into "times distracted." There is nothing for a future report to shame me with, because the data does not exist.
+- **No counting — stated at the size it actually holds.** The nudge module creates no counter and no aggregate, and **no surface in Aether renders one**. It would be an over-claim to say the data does not exist: a1's action log records every `nudge_dismiss` with a timestamp and `:actions` is filterable; p1 stamps every `nudge_capture`; d3 and d4 already store the underlying drift events with `focus_task` attached. So the three `nudge_*` commands are **excluded from a1's log** — the one command family where logging costs more than it buys, and which is `agent: false` anyway so the log's accountability purpose does not apply — and the claim is written as what remains true rather than as something three other subsystems falsify.
 - **No language of judgement.** Every string passes f6's lexicon sweep, including model output — a classifier reply is used as a boolean, never rendered, so a model cannot phrase anything at me.
 - **No streaks, no scores, no "focus quality," no daily summary of drift.**
 - **No blocking.** The nudge never prevents navigation, never closes a tab, never enforces a list. Commitment-device locks are a separate, later, explicitly-opt-in feature; conflating them here would turn an offer into a cage.
@@ -64,7 +64,9 @@ New registry commands: `nudge_back`, `nudge_capture`, `nudge_dismiss` — all `r
 
 ## 3. Pure vs glue
 
-- **`aether-nudge.sys.mjs`** (pure): `relatedness(task, {host, title, workspace, taskHistory})` → `{score, basis, needsModel}` — deterministic signals, with the model call as an explicit fallback rather than the default path; `shouldNudge(state, event, cfg, now)` → boolean, total and testable with an injected clock; `nudgeState(state, action)` — the one-offer-per-session machine.
+- **`aether-nudge.sys.mjs`** (pure): `relatedness(task, {host, workspace, taskHosts})` → `{score, basis, needsModel}` — **no `title` parameter at all**, so the page-controlled signal cannot be reintroduced by a caller; deterministic signals first, model call as an explicit fallback; `shouldNudge(state, event, cfg, now)` → boolean, total and testable with an injected clock; `nudgeState(state, action)` — the one-offer-per-session machine.
+
+`taskHosts` is **in-session only** — the hosts seen since this `:focus` began, held in memory and discarded with the session. Sourcing it from d3/d4 would reintroduce persisted focus history, which f6 cut as identity rather than deferral, and would make this spec depend on the entire daemon; in-session is both smaller and truer to f6.
 - **`aether-strings.sys.mjs`**: nudge copy — sweep target, and the sweep is extended with a nudge-specific word list (`distracted`, `off-task`, `focus score`, `procrastinat*`).
 - **`aether.uc.js`** (glue): subscribes to the existing f6 session state and d3 events; renders into the existing message slot; the capture action calls p1's `add`.
 
@@ -76,9 +78,10 @@ New registry commands: `nudge_back`, `nudge_capture`, `nudge_dismiss` — all `r
 4. **long dwell on related content never triggers, at any duration** — asserted at 30m, 3h and 8h, so the hyperfocus rule can't regress into a time-based nudge
 5. once offered, no second nudge fires for the remainder of the session regardless of subsequent drift; `:done` then a new `:focus` re-arms
 6. dismissal is terminal for the session — asserted separately from (5), since "offered" and "dismissed" are different states that must both latch
-7. `relatedness`: same workspace and same host as task history score related without a model call; `needsModel` is true only when deterministic signals are inconclusive (asserted, so the common path stays local and free)
-8. `nudgeState` is append-only in the sense that matters: the module exports **no** counter, tally, or history accessor — an inventory assertion, so a future "just track how often" edit fails CI
-9. a model reply is consumed as a boolean; a reply containing prose is never propagated into any rendered string (asserted with a sentinel reply)
+7. `relatedness`: same workspace and same in-session host score related without a model call; `needsModel` is true only when deterministic signals are inconclusive (asserted, so the common path stays local and free)
+8. **a page `<title>` cannot influence the outcome** — `relatedness` accepts no title parameter, asserted by signature; and a fixture page whose title exactly equals the focus task name still scores unrelated on host and workspace alone (the self-exemption attack, closed by shape rather than by rule)
+9. `nudgeState` exports **no** counter, tally, or history accessor — an inventory assertion, so a future "just track how often" edit fails CI — and the three `nudge_*` commands are absent from the action log's recorded set
+10. a model reply is consumed as a boolean; a reply containing prose is never propagated into any rendered string (asserted with a sentinel reply), and the classifier call uses a context that is not the f7 conversation
 10. every nudge string passes the extended lexicon sweep, including the capture and dismiss labels
 11. `nudge_capture` produces a bookmark with the configured tag and returns the prior tab (both effects asserted, since capture-without-return leaves me where I drifted)
 12. all three nudge commands are marked `agent: false` in the registry

@@ -8,6 +8,18 @@
 
 **Thinnest**: it is a mod — no overlay changes are permitted by this spec. Style through b1's pipeline, commands through x1's facade, candidates through x3's ranker, panels through r4's primitive. If the GitHub mod needs something the facade can't express, that is a finding, and the finding goes to x1 rather than into a special case here.
 
+**And it found three immediately, which is the point of building it alongside the facade rather than after.** x1 grants no DOM access, no network, and no arbitrary file read — so the parts of this mod that need page interaction, the GitHub API, or a cache file outside `aether.storage` are **not buildable in v1.3**. Rather than pretend otherwise, the mod ships in two stages:
+
+| v1.3 — buildable on x1 today | Deferred to v2.1 (needs a2's page action) |
+|---|---|
+| `style.css` | `git:review` — the whole workflow |
+| `git:open`, `git:pr`, `git:prs` | `git:new_pr`, `git:new_repo` (need the API) |
+| `git:checks`, `git:files` | comment / label / approve / request-changes |
+
+The v1.3 half is real and useful — URL parsing plus a repo list is most of the daily value — and it exercises `defineCommand`, namespacing, `site()`, candidate providers and x3 ranking, which is the API surface most likely to be wrong. The deferred half is what the facade genuinely cannot express, and naming it here is the finding: **the facade should not be declared frozen until a2 has shown what a page-acting consumer needs**. `aether.version` therefore starts at `0.x` in v1.3 and reaches `1.0` after a2, not before.
+
+The repo cache also has to live where x1 can read it: `aether.storage` is one JSON file per script, so the `gh` output is written **into that file** by a timer I own, not read from an arbitrary path the facade cannot open.
+
 ## 2. Exact behavior
 
 Ships in-repo at `overlay/mods/github/`, symlinked or copied into `~/.config/aether/mods/`, `tier = "code"`, `namespace = "git"`.
@@ -29,7 +41,7 @@ Hides the promo furniture and reclaims vertical space on the surfaces I actually
 | `git:files` | this PR's changed-files view |
 | `git:review` | start the review workflow (below) |
 
-Candidates come from a **daemon-free source in v1.3**: the `gh` CLI, invoked by the facade's command through the AI-gateway-free path — specifically, x1 does not grant network or process access, so this mod reads a **cache file** that `gh` writes (`~/.config/aether/mods/github/repos.json`, refreshed by a shell alias or a systemd timer I own). When `aetherd` lands (v2.0), the daemon adapter replaces the cache file and the commands do not change — that substitution is a test of the architecture and the reason the mod reads through one accessor.
+Candidates come from a **daemon-free source in v1.3**. x1 grants neither network nor process access, so a timer I own runs `gh repo list --json` and writes the result into this mod's `aether.storage` file; the mod reads it through one accessor. When `aetherd` lands (v2.0), a daemon adapter replaces that source and the commands do not change — the substitution is a test of the architecture.
 
 **No token, ever.** `gh` holds the auth; the browser holds none. This is the concrete version of the rule that credentials never live in chrome.
 

@@ -12,28 +12,46 @@
 
 **Style shape** (validated, all-or-nothing per key *class*, not per file — see below):
 
+**The defaults are the values `userChrome.css` ships with today, not aspirational ones.** f3's precedent is that the builtin constant, `DEFAULTS`, and the example TOML are literally one source of truth, and the sync guard asserts it — so if this block advertised nicer values, either the guard fails or the chrome silently ships 8px corners and a backdrop blur it never had, and the "pixel-identical by default" claim dies with it. Tuning happens in *your* dotfile, which is the whole point of the feature.
+
 ```toml
 [style]
-radius        = "8px"       # corner radius, chrome-wide
-gap           = "6px"       # space between statusbar slots
-pad           = "4px 8px"   # inner padding of chrome surfaces
+radius        = "2px"       # userChrome.css:116,223 today
+gap           = "1em"       # statusbar slot gap today
+pad_y         = "0"         # statusbar padding today: 0 8px
+pad_x         = "8px"
+row_pad_y     = "2px"       # palette row padding today: 2px 8px
+row_pad_x     = "8px"
 border        = "1px"
 panel_width   = "38rem"     # palette / panel surfaces
 panel_height  = "60vh"
-opacity       = 0.96        # chrome surface opacity
-blur          = "12px"      # backdrop blur; "0" disables
-font          = "monospace" # chrome font family
-font_size     = "13px"
-motion_ms     = 120         # transition duration
+opacity       = 100         # integer percent, not a float — see below
+blur          = "0"         # no backdrop-filter today
+font          = "monospace"
+font_size     = "12px"      # 12px monospace today
+motion_ms     = 120
 motion_ease   = "cubic-bezier(0.22, 1, 0.36, 1)"
 motion        = true        # master switch; false = 0ms everywhere
 ```
+
+Two shape decisions forced by the shipped parser:
+
+- **Padding is split into `pad_x`/`pad_y`** (and `row_pad_*`). A two-value `"4px 8px"` fails this spec's own single-length validator, and widening the grammar to accept multi-value lengths widens the injection surface for no gain.
+- **`opacity` is an integer percent, not a float.** `parseValue` recognises bools, `/^-?\d+$/`, quoted strings and arrays — a bare `0.96` falls through and returns the **string** `"0.96"`. No existing `DEFAULTS` value is a float, so this has never bitten. Rather than adding a float branch to the parser (which r5's round-trip test would then have to preserve exactly), the schema simply has no floats. If a later spec genuinely needs one, adding `/^-?\d+\.\d+$/ → parseFloat` is a one-line change that must land *with* its round-trip test, not before.
 
 **Validation is per-key with typed validators**, not the palette's whole-source rejection — a bad `radius` falls back to the default `radius` and everything else still applies, with one calm line naming the key (`style: radius ignored`). Colours are all-or-nothing because a half-applied palette is unreadable; a half-applied style layer is merely less tuned. **Every validator is an allow-list**: lengths match `^-?[0-9.]+(px|rem|em|%|vh|vw)$`, unitless numbers a bounded range, easing must match a `cubic-bezier(...)`/`linear`/`ease*`/`steps(...)` grammar, and `font` is matched against a family-name grammar (no `url()`, no commas that could close a declaration). Same principle as f3: **validation is the CSS injection barrier**, and anything that fails it never reaches emission.
 
 **Emission**: `:root { --aether-radius: …; --aether-gap: …; … }` into `<style id="aether-style">`, a sibling of the theme element. Two elements, not one, so `:theme_reload` and a style change stay independently applicable.
 
-**Motion**: `--aether-motion-ms` and `--aether-motion-ease` are consumed by transition rules in `userChrome.css` on exactly four surfaces — statusbar (message slot changes), palette strip (open/close), AI sidebar (open/close), and r4 panels (open/close). Opening transitions animate opacity and a small transform; nothing animates position-of-content, and nothing loops. `motion = false` sets the duration var to `0ms`, which disables every transition through one value — and the same happens automatically when the OS reports `prefers-reduced-motion`, which is a hard override the config cannot re-enable.
+**Motion**: `--aether-motion-ms` and `--aether-motion-ease` are consumed by transition rules in `userChrome.css` on exactly four surfaces — statusbar (message slot changes), palette strip (open/close), AI sidebar (open/close), and r4 panels (open/close). Opening transitions animate opacity and a small transform; nothing animates position-of-content, and nothing loops. `motion = false` sets the duration var to `0ms`, which disables every transition through one value.
+
+**Reduced motion is enforced in CSS, not JS.** A `matchMedia` listener that overrides the var only fires on *change* — and `applyStyle()` regenerates the whole `<style id="aether-style">` from config on every reload, re-emitting `motion_ms` and quietly restoring animation for the rest of the session. So the override is a static rule in `userChrome.css`:
+
+```css
+@media (prefers-reduced-motion: reduce) { :root { --aether-motion-ms: 0ms !important } }
+```
+
+It survives every regeneration, needs no listener, and removes a glue path from §3. *(Whether Gecko maps GTK's `gtk-enable-animations` to `prefers-reduced-motion` on Arch **needs verification** before the visual scenario depends on it; the rule is correct regardless.)*
 
 **`[style]` participates in r1's reload** as its own domain: change a value, save, see it.
 
@@ -41,9 +59,10 @@ motion        = true        # master switch; false = 0ms everywhere
 
 - **`aether-style.sys.mjs`** (pure, Node-testable — no Services/DOM): `DEFAULTS_STYLE` constant (the exact values `userChrome.css` ships with, so default == builtin == example, one source of truth, per f3's precedent); `VALIDATORS` — one typed allow-list validator per key; `buildStyle(table)` → `{style, rejected: [key]}` (never throws, never partial-per-key); `emitStyleCss(style)` → the `:root` text.
 - **`aether-config.sys.mjs`**: `DEFAULTS.style` imports `DEFAULTS_STYLE` (no cycle — style is pure).
-- **`aether-reload.sys.mjs`** (r1): `style` joins `DOMAIN_MAP`.
-- **`aether.uc.js`** (glue): `applyStyle()` — create-or-update `<style id="aether-style">`; one message naming rejected keys; `prefers-reduced-motion` media query listener forcing the duration var to `0ms`.
-- **`userChrome.css`**: constants → `var(--aether-*, <same constant>)`; transition rules on the four surfaces.
+- **`aether-reload.sys.mjs`** (r1): `style` joins `DOMAIN_MAP` as a path-level entry.
+- **`aether.uc.js`** (glue): `applyStyle()` — create-or-update `<style id="aether-style">`; one message naming rejected keys. **No reduced-motion listener** — that rule lives in CSS.
+- **`aether-strings.sys.mjs`**: the rejected-key message. It must survive f6 test 11's harness (every export invoked as `fn(task, "34m")`), so it takes a single pre-joined string rather than an array.
+- **`userChrome.css`**: constants → `var(--aether-*, <same constant>)`; transition rules on the four surfaces; the static `prefers-reduced-motion` override.
 
 ## 4. Unit tests (behavioral) — `overlay/test/unit/r2-style.test.mjs`
 
@@ -52,7 +71,7 @@ motion        = true        # master switch; false = 0ms everywhere
 3. a bad length (`"8"`, `"8pt"`, `"calc(1px)"`) → that key falls back to its default and is named in `rejected`; **other keys still apply** (per-key, not per-source)
 4. injection guard: `radius = "8px; } :root { --evil: 1"` is rejected, and emitted CSS contains no braces sourced from values
 5. injection guard 2: `font = "monospace; background: url(http://x)"` and `motion_ease = "cubic-bezier(0,0,0,0); } *{display:none"` are both rejected by grammar, not by escaping
-6. `opacity` outside `0..1` and `motion_ms` outside a bounded range → rejected, defaulted, named
+6. `opacity` outside `0..100` and `motion_ms` outside a bounded range → rejected, defaulted, named; a **float** (`0.96`) is rejected rather than silently becoming the string `"0.96"` — the parser's actual behavior, pinned
 7. `motion = false` → the emitted duration var is exactly `0ms` (one value disables everything, no second switch)
 8. `blur = "0"` is valid and emits `0` (disabling blur is not an error)
 9. `emitStyleCss` emits one declaration per key, balanced braces, no `undefined` text (mirrors f3 test 10)
@@ -61,7 +80,7 @@ motion        = true        # master switch; false = 0ms everywhere
 
 `overlay/test/unit/r2-config.test.mjs`:
 
-12. config sync guard: `DEFAULTS.style` parses identically from `overlay/config/aether.toml` (f0 pattern)
+12. config sync guard: `DEFAULTS.style` parses identically from `overlay/config/aether.toml` (f0 pattern) — and `DEFAULTS_STYLE` equals the values `userChrome.css` currently hardcodes, asserted key by key against a fixture extracted from the stylesheet, so "pixel-identical by default" is proven rather than asserted
 13. r1 integration: a changed `[style]` value diffs to exactly the `style` domain
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/h2-style-and-motion.sh`

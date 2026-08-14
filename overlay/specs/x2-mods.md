@@ -34,7 +34,9 @@ requires    = { daemon = ["github"] }   # v2.0; ignored until then
 
 ### Trust tiers — the load-bearing part
 
-**Tier `style` — CSS only, safe by construction.** No `commands.js` permitted; the loader refuses to read one from a style-tier mod. The CSS goes through b1's sanitizer on every apply: no `@import`, no non-`data:` `url()`, no `image-set()` sources, escape-decoded spellings included. A hostile style mod can make a page ugly and nothing else — no fetch channel, no exfiltration, no code. **Because that boundary is already built and already tested, style mods can be installed in one command from a URL.**
+**Tier `style` — CSS only.** No `commands.js` permitted; the loader refuses to read one from a style-tier mod. The CSS goes through b1's sanitizer on every apply: no `@import`, no non-`data:` `url()`, no `image-set()` sources, escape-decoded spellings included.
+
+**The strength of that boundary is stated at b1's own size, not inflated to justify a distribution feature.** b1 says it plainly, in its spec and in the shipped README: the sanitizer is *lexical, scoped to the known fetch vectors it strips, and not a CSS parser*. That is an adequate guard on CSS I wrote or read; it is not a warrant for one-command installation of CSS I have not read from a URL I do not control. So `:mod_install <url>` accepts style mods **and still shows the CSS for review before writing it** — the sanitizer narrows what an unreviewed stylesheet can do; it does not make review unnecessary. It is also the overlay's only arbitrary-URL fetch from privileged chrome, and therefore the one documented exception to f7's loopback rule, named here rather than left implicit.
 
 **Tier `code` — git only, no registry, no one-click.** Commands are privileged JS (x1: no sandbox, and none is claimed). Installation is `git clone` into `mods/`, plus an explicit entry in `[mods] enabled`. There is deliberately **no install command, no mod browser, and no update mechanism** for code mods. The friction is the security model: it forces a moment where you either read the code or knowingly trust the author, exactly like an AUR build or an nvim plugin.
 
@@ -64,7 +66,7 @@ New registry commands: `mods`, `mod_install`, `mod_enable`, `mod_disable`, `mod_
 ## 3. Pure vs glue
 
 - **`aether-mods.sys.mjs`** (pure): `parseManifest(text)` → validated manifest or a reason; `validateNamespace(ns, commandNames)`; `resolveLoadOrder(enabled, installed)` → ordered list plus named misses; `tierPolicy(manifest, files)` → what this tier is allowed to load, the single place the boundary is expressed; `modDir(name)` → path-safe directory name (b1's `boostFileName` guard: hostile names can never escape the mods dir).
-- **`aether-boosts.sys.mjs`** (b1, pure): reused for mod style — same sanitizer, one trust decision, no second CSS path.
+- **`aether-boosts.sys.mjs`** (b1, pure): the sanitizer is reused verbatim — one trust decision, no second CSS path. But this is **modification, not pure reuse**, and saying "reused" would hide the cost: `resolveBoost` today returns one file and the apply path installs a single `<style data-aether-boost>`, while this spec needs an ordered list (mod styles first, user dotfile last) and exact-or-declared matching instead of b1's suffix walk. Both are changes to shipped, tested code, and b1's tests extend rather than merely passing.
 - **`aether-facade.sys.mjs`** (x1, pure): reused for mod commands, with the namespace constraint applied.
 - **`aether.uc.js`** (glue): directory scan, manifest read, per-mod try/catch, style registration into b1's registry keyed by the mod's `match`, `mod_install` fetch → verify → sanitize → write.
 - **`aether-strings.sys.mjs`**: refusal/skip/enable copy — lexicon-swept, and the refusal copy is *explanatory, not scolding* (declining to install a code mod from a URL is a normal outcome).

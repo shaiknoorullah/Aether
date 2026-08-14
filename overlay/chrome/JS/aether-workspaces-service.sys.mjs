@@ -32,13 +32,18 @@ export const AetherWorkspaces = {
     return (this._initPromise ??= this._load(defaultName));
   },
 
+  // "Absent" and "unreadable" are different states — see the graveyard
+  // service for the full reasoning. A file that exists but cannot be read
+  // must not be treated as empty, because the next write renames over it.
   async _load(defaultName) {
     let text = "";
+    this.readFailed = false;
     try {
       const path = this._path();
       if (await IOUtils.exists(path)) text = await IOUtils.readUTF8(path);
     } catch (e) {
-      console.info("[aether] workspaces file unreadable, starting fresh:", e);
+      this.readFailed = true;
+      console.error("[aether] workspaces file unreadable — writes disabled:", e);
     }
     this.model = deserialize(text, defaultName);
     // b3: age out 30-day-old context records and drop drifted/orphaned ones —
@@ -73,11 +78,16 @@ export const AetherWorkspaces = {
   // Async atomic writes (tmpPath), queued so they never interleave; last
   // write wins.
   persist() {
-    if (!this.model) return;
+    if (!this.model || this.readFailed) return;
     const text = serialize(this.model);
     const path = this._path();
     this._writeChain = this._writeChain
-      .then(() => IOUtils.writeUTF8(path, text, { tmpPath: `${path}.tmp` }))
+      .then(() =>
+        IOUtils.writeUTF8(path, text, {
+          tmpPath: `${path}.tmp`,
+          backupFile: `${path}.bak`,
+        })
+      )
       .catch(e => console.error("[aether] could not write workspaces:", e));
   },
 

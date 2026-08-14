@@ -6,7 +6,11 @@
 
 **Instead**: one now-playing widget, one mini-player panel, unified controls that work regardless of which application is actually playing, and a visualizer driven by real system audio. `playerctl` is already installed on this machine, which means the abstraction I need already exists and I'm using it from the shell.
 
-**Thinnest**: **MPRIS is the backend-agnosticism.** Firefox exposes every playing tab over MPRIS; so do Spotify, mpd (via mpDris2), and essentially every Linux player worth using. One D-Bus adapter in `aetherd` gives play/pause/next/prev/seek and full metadata across all of them — there are no per-service control adapters to write, now or ever. Chrome JS can't speak D-Bus, which is precisely the gap d1 exists to fill.
+**Thinnest**: **MPRIS is the backend-agnosticism for *external applications*.** Spotify, mpd (via mpDris2) and essentially every Linux player expose it, so one D-Bus adapter in `aetherd` gives play/pause/next/prev/seek across all of them with no per-service control adapters, now or ever. Chrome JS can't speak D-Bus, which is precisely the gap d1 exists to fill.
+
+**But MPRIS cannot see individual tabs, and this feature's opening pain is a tab I can't find.** Firefox registers **one bus name per browser instance** (`org.mpris.MediaPlayer2.firefox.instance<PID>`), following the MPRIS guidance for multi-instance applications — so two playing tabs are one player that cannot be named, distinguished, or switched between. `t` cycle-target could never resolve them. So per-tab identity comes from the overlay's own tab model, where `gBrowser` already tracks `soundPlaying` and `muted` per tab and needs no daemon at all; MPRIS covers everything outside the browser. Two sources, one panel.
+
+Three related claims are narrowed to what Firefox actually provides, each **needing verification against the running build** before the panel depends on it: metadata is populated from the page's MediaSession API and falls back to the page title with no artist or album when a site sets nothing (most don't); `CanSeek` is true only when the media is seekable *and* the page registered a `seekto` handler; and `mpris:length` exposure is a separate upstream bug from the `Seek`/`SetPosition` support that landed in Firefox 131. The panel therefore renders a position bar only when `mpris:length` is present, shows position-only otherwise, and marks seek unavailable when `CanSeek` is false rather than sending a method that silently no-ops.
 
 ## 2. Exact behavior
 
@@ -22,7 +26,9 @@ Actions: `play_pause`, `next`, `prev`, `seek`, `set_target`, `list`. Every one i
 
 ### Mini-player panel
 
-`:media` opens r4's panel with a different body: transcript-free, showing target player, title/artist/album, a position bar, and the transport row. Keys: `Space` play/pause, `n`/`p` next/prev, `←`/`→` seek ±5s, `t` cycle target player, `v` toggle visualizer, `Esc` close.
+`:media` is **not an r4 panel source** — it is its own surface, and is budgeted as one. Its body has no search field and no rows, its `Space` means play/pause where r4's means mark, and the corner card below persists over page content, which no panel does. Calling it a source would quietly make r4's "one contract for every panel forever" false. It reuses r4's *styling* and its open/close behavior, nothing more.
+
+The body shows target player, title/artist/album, a position bar (when `mpris:length` is available), and the transport row. Keys: `Space` play/pause, `n`/`p` next/prev, `←`/`→` seek ±5s, `t` cycle target player, `v` toggle visualizer, `Esc` close.
 
 **Minimize-to-corner** is `m` — the panel shrinks to a small persistent corner card (title + position bar + visualizer if enabled) that stays over page content until dismissed with `:media` again. It is a CSS state on the same element, not a second surface, and it is the only chrome in Aether that persists over content by choice.
 
@@ -34,7 +40,9 @@ Per-service **search** adapters, unlike control: `subsonic` (Navidrome/Jellyfin/
 
 The honest constraint: **you cannot tap arbitrary tab audio or another application's output from chrome JS.** Web Audio's analyser only sees documents you control. So the daemon taps a PipeWire monitor source, runs the FFT, and streams magnitude bins over the event socket; the panel paints them to a `<canvas>`. This is strictly better than the browser-only version — it visualizes *system* audio, so it works for Spotify and mpd, not just tabs.
 
-Bins, rate, and smoothing are config; default 32 bins at 30fps, which is a few KB/s over a loopback socket. The visualizer only streams while a panel with the visualizer enabled is open — no tap, no CPU, no stream otherwise.
+Bins, rate, and smoothing are config; default 32 bins at 30fps. Wrapped in d1's JSON envelope that is 15–30 KB/s and 30 `JSON.parse` calls a second on the chrome main thread, so the FFT stream uses a **binary frame** rather than the JSON envelope — it is the one always-on stream in the design. The visualizer only streams while the mini-player is open with the visualizer enabled — no tap, no CPU, no stream otherwise.
+
+Stated plainly, because this spec's privacy posture is explicit elsewhere: a PipeWire **monitor** tap captures all system output, including audio from private windows and from calls. It is read-only and never recorded — only magnitudes leave the daemon — but the tap's reach is what it is.
 
 **TOML surface** (overlay):
 
@@ -74,8 +82,10 @@ New registry commands: `media`, `media_play_pause`, `media_next`, `media_prev`, 
 `daemon/tests/mpris.rs`:
 9. target selection: the most recent player to report `Playing` becomes active and stays active when it pauses; a second player starting takes over
 10. a player disappearing from the bus mid-session clears the target without panicking and emits a terminal event
-11. actions on a player lacking a capability (`canGoNext = false`) return a typed error rather than calling the method
-12. the visualizer tap opens only while a subscriber exists and closes on the last unsubscribe (asserted by monitor-source refcount)
+11. actions on a player lacking a capability (`canGoNext = false`, `CanSeek = false`) return a typed error rather than calling a method that no-ops
+12. a Firefox instance with two playing tabs presents as **one** MPRIS player, and the adapter does not claim otherwise — per-tab rows come from the overlay's tab model, asserted as a separate source
+13. metadata with no MediaSession data yields title-only, and `mpris:length` absent yields a position-only state that the panel renders without a bar
+14. the visualizer tap opens only while a subscriber exists and closes on the last unsubscribe, asserted from **outside the daemon** by the PipeWire node/link count — a leaked stream with a correctly decremented internal refcount would otherwise pass
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/k2-media.sh`
 

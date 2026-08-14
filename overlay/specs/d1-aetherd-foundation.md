@@ -12,22 +12,36 @@
 
 ### Process and packaging
 
-`daemon/` in this repo, its own `Cargo.toml`, its own version number, released independently — it is **not** on the Firefox rebase treadmill, and that separation is the main architectural point. Runs as a user systemd service (`aetherd.service`, no root, `ProtectSystem=strict`, `NoNewPrivileges`). It never requires the browser and the browser never spawns it.
+`daemon/` in this repo, its own `Cargo.toml`, its own version number, released independently — it is **not** on the Firefox rebase treadmill, and that separation is the main architectural point. Runs as a user systemd service (`aetherd.service`, no root). It never requires the browser and the browser never spawns it.
+
+**The threat model, stated plainly, because three specs build guarantees on it.** The `0600` token defends against *other users* and against *web pages*. It does **not** defend against a process running as me — which is the realistic threat on a workstation running npm, cargo and pip. Such a process reads the token and gains everything the daemon holds: `exec` (d3), VPS credentials (d5), and store decryption keys (d7). So d5's "no credentials in the browser" and d7's encryption at rest **relocate** secrets rather than protecting them against local malware; what they genuinely protect against is a browser bug reaching credentials, a stolen disk, and dotfile sync. Encryption at rest is not live-session malware protection and this spec does not imply it is.
+
+The systemd hardening is therefore either real or absent, not decorative: `ProtectSystem=strict`, `ProtectHome=read-only` with explicit `ReadWritePaths`, `NoNewPrivileges`, `SystemCallFilter=@system-service`, `RestrictAddressFamilies=AF_INET AF_UNIX`, `IPAddressAllow=localhost` plus configured endpoint hosts. None of it constrains a same-uid client; it constrains the daemon's own blast radius, which is a different and smaller claim.
 
 ### Transport and authentication
 
-HTTP + WebSocket on `127.0.0.1:7717` (configurable). A loopback port is reachable by **any local process and by any web page the browser loads**, so authentication is not optional:
+HTTP + WebSocket on `127.0.0.1`, on a **random high port chosen at first run** and recorded in the token file. A fixed 7717 is squattable: `aetherd` is a user service, so at every login there is a window where the port is unbound, and any same-user process that binds it first harvests the bearer token on the overlay's first request — and the overlay's "back off silently, forever" makes that maximally reachable. Recording the port in the `0600` file means squatting requires reading that file, which collapses the attack into the same-user case below.
 
-- **Bearer token** in `~/.config/aether/daemon-token`, mode `0600`, generated on first run from the OS CSPRNG. The overlay reads it via `IOUtils` at startup. Every request must carry it; a missing or wrong token is a flat `401` with no body.
-- **Any request carrying an `Origin` header is rejected outright**, before authentication. Privileged chrome fetches don't send one; page-initiated fetches always do. That single rule kills the DNS-rebinding and drive-by-localhost classes, and it fails closed.
-- **`Host` must be a loopback literal.** A rebound hostname that resolves to 127.0.0.1 is rejected by name.
+A loopback port is reachable by **any local process and by any web page the browser loads**, so authentication is not optional. Each rule below does one specific job, and the spec says which — mis-attributing a defense is how a gap survives review:
+
+- **Bearer token** in `~/.config/aether/daemon-token`, mode `0600`, generated on first run from the OS CSPRNG, compared in **constant time**. This is what stops drive-by-localhost. A missing or wrong token is a flat `401` with an empty body, byte-identical in both cases, and failed attempts are counted and logged once a minute — there is otherwise no rate limit on a brute force from a process that can reach the port but not read the file.
+- **`Host` must be a loopback literal.** *This* is what stops DNS rebinding — a rebound hostname resolving to 127.0.0.1 is rejected by name.
+- **Any request carrying an `Origin` header is rejected**, before authentication. This is **defense in depth over a subset**, not a general defense: `Origin` is absent on no-CORS GET subresource loads (`<img>`, `<script>`, `<iframe>`), on GET form submissions, and on top-level navigations — all of which reach the handler — and after a successful rebind the page is same-origin, where GETs carry no `Origin` at all. It closes the CORS/POST/WebSocket subset and nothing more.
+- **`Content-Type: application/json` required on every POST**, which closes the simple-request form-submission path that `Origin` alone does not.
 - Bind is `127.0.0.1` only, never `0.0.0.0`, and that is not configurable.
+- **The overlay authenticates the daemon, not just the reverse.** `/v1/capabilities` carries a client nonce and the daemon returns `HMAC(token, nonce)`; the overlay verifies before sending anything else. Without it, authentication is one-way and the first request to an impostor is a credential disclosure.
+
+**Spike before building this**: whether a chrome-context `fetch`/`WebSocket` sends any `Origin` value. If it sends one (`null`, or a `chrome://` serialization), the rule rejects the overlay's own socket and the daemon appears permanently down — and the tempting fix, allowlisting `Origin: null`, is exactly what sandboxed iframes and `data:` documents send, which reopens the hole. Record the answer in this spec.
+
+**A unix domain socket in `$XDG_RUNTIME_DIR` with `SO_PEERCRED` is the stronger design** and deletes this entire apparatus — web pages cannot address unix sockets, so drive-by-localhost, rebinding, `Origin`, and port squatting all stop existing. The cost is that chrome JS must use `nsISocketTransportService` instead of `fetch`/`WebSocket`, which is real glue complexity against the maintenance budget. **Spike both before committing to TCP**, because this choice is very hard to change once d2–d7 sit on top of it.
 
 ### Protocol
 
 `GET /v1/capabilities` → what this daemon can do, which the overlay uses to decide what to render. `POST /v1/<adapter>/<action>` with a JSON body. `GET /v1/events` upgrades to a WebSocket carrying a typed event stream (`{adapter, type, payload, seq}`); `seq` is monotonic per connection so a reconnect can report a gap rather than silently losing events.
 
-Every response is `{ok: true, data}` or `{ok: false, error: {code, message}}` — the message is for a human and is displayed verbatim in the statusbar, so daemon error strings are inside the f6 lexicon sweep by policy (asserted daemon-side).
+**The WebSocket carries the token in `Sec-WebSocket-Protocol`**, as `aether.v1, aether.token.<token>`. The browser's WebSocket API cannot set request headers, so `Authorization` is not available; the obvious fallback — a query parameter — puts the token in the daemon's access log, in Necko error strings, in `about:networking`, and potentially into the `error.message` the statusbar renders. The subprotocol header is settable from JS and is not routinely logged.
+
+Every response is `{ok: true, data}` or `{ok: false, error: {code, message}}`. **The overlay renders every daemon-supplied string as `textContent`, truncated to 200 characters, with control, zero-width and bidi characters stripped — in the overlay, never trusted from the daemon.** f7 established that rule for model output and the shipped code honors it; a daemon message is the same trust class the moment d5 lets a remote response influence it, and one `innerHTML` in statusbar glue would be chrome-privileged XSS. The f6 lexicon sweep covers the daemon's *own* static strings (asserted daemon-side) and cannot cover interpolated remote text or third-party subprocess output — so those are never rendered verbatim: a subprocess failure maps to the daemon's own swept message, with the raw text going only to the daemon log.
 
 ### Adapters and capabilities
 
@@ -56,7 +70,13 @@ base_url = "http://127.0.0.1:7717"
 token    = "~/.config/aether/daemon-token"
 ```
 
-New registry commands: `daemon` (status panel), `daemon_on`, `daemon_off` — `daemon_off` aborts in-flight requests and closes the socket, the hard-switch contract f7 established.
+New registry commands: `daemon` (status panel), `daemon_on`, `daemon_off`, `daemon_rotate`.
+
+`daemon_off` aborts in-flight requests and closes the socket — but it is **not** f7's kill switch and this spec does not claim it is. f7's switch means *no packets leave*, asserted by a mock gateway's request log gaining zero entries. `daemon_off` disconnects the *browser* from the daemon; the daemon keeps polling the VPS (d5), writing to taskwarrior and timewarrior (d3), and writing AW buckets (d4). **The daemon's kill switch is `systemctl --user stop aetherd`**, and the `:daemon` panel says so.
+
+For the same reason, "the browser only ever talks to loopback" no longer implies "the browser causes no remote traffic" once d5 exists — it causes remote traffic by proxy, on a schedule it does not control, whether or not it is running. The loopback rule still means the browser holds no credentials and has no remote code path; that is the claim, and it is smaller than the one f7 could make.
+
+`daemon_rotate` regenerates the token, rewrites the `0600` file, and invalidates the old value immediately; the overlay re-reads the token file on any `401` before backing off, so rotation is one command rather than a restart dance.
 
 ## 3. Pure vs glue
 
@@ -76,18 +96,25 @@ New registry commands: `daemon` (status panel), `daemon_on`, `daemon_off` — `d
 6. events for an unknown adapter are ignored without throwing (forward compatibility with a newer daemon)
 7. disabled state: the request builder is never reachable — the gate is the same `assertOn` shape as f7, verified both ways
 
+8. **the token never appears in any log line, error message, or event payload** — seed a sentinel token, exercise every failure path, grep all emitted output (d5's test 8, which d1 lacked entirely, applied to d1's own credential)
+9. daemon-supplied strings render bounded and inert: markup, control characters, bidi overrides and a 1 MB string all pass through the render path as single-line `textContent` with no markup surviving
+
 `daemon/tests/auth.rs` (cargo):
-8. request with a valid token and no `Origin` → accepted
-9. request with a valid token **and** an `Origin` header → rejected, and rejected *before* token comparison (ordering asserted, so a page can't use timing to probe tokens)
-10. wrong/absent token → `401` with an empty body; the response is byte-identical in both cases (no oracle)
-11. `Host: aether.local` resolving to loopback → rejected by name
-12. bind address is 127.0.0.1 even when config says otherwise (the un-overridable rule, asserted)
-13. token file is created `0600`; a world-readable existing token file is refused with a named error rather than used
+10. request with a valid token and no `Origin` → accepted
+11. request with a valid token **and** an `Origin` header → rejected
+12. **a no-`Origin` GET subresource-shaped request with no token → `401`** — the case the `Origin` rule does not cover, proving the token is what defends it
+13. a POST without `Content-Type: application/json` → rejected (the simple-request form path)
+14. wrong/absent token → `401` with an empty body, byte-identical in both cases (no oracle), and the comparison is **constant-time** (asserted by construction: the equality helper is the constant-time one)
+15. `Host: aether.local` resolving to loopback → rejected by name
+16. bind address is 127.0.0.1 even when config says otherwise (the un-overridable rule, asserted)
+17. token file is created `0600` with `O_NOFOLLOW`, is a regular file owned by the running uid, and its parent directory is not group/world-writable — each refused with a named error rather than used
+18. the port recorded in the token file is not the compiled default (random-port rule)
+19. `/v1/capabilities` returns `HMAC(token, nonce)` for the client nonce, and the overlay's client rejects a wrong HMAC before sending a second request
 
 `daemon/tests/registry.rs`:
-14. an adapter not in `adapters` never loads and its actions 404
-15. an adapter requesting an ungranted capability fails at load, naming the capability
-16. every daemon-emitted error message passes the lexicon sweep (the word list is shared with the overlay as a fixture)
+20. an adapter not in `adapters` never loads and its actions 404
+21. an adapter requesting an ungranted capability fails at load, naming the capability
+22. every daemon-emitted **static** error string passes the lexicon sweep (word list shared with the overlay as a fixture) — and a subprocess failure surfaces the daemon's own swept message, with the third-party text present only in the log (the sweep cannot cover text it did not author, so the boundary is enforced rather than assumed)
 
 ## 5. Visual states — `overlay/test/visual/scenarios.d/k1-daemon.sh`
 
