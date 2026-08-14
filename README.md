@@ -9,14 +9,14 @@
 <br/>
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Status: Research / RFC](https://img.shields.io/badge/status-research%20%2F%20RFC-orange)](#-project-status)
+[![Status: v1.1.0 — working](https://img.shields.io/badge/status-v1.1.0%20working-success)](#roadmap)
 [![Local-First](https://img.shields.io/badge/local--first-100%25-success)](#-the-open-source--local-first-pledge)
 [![No Cloud Required](https://img.shields.io/badge/cloud-not%20required-success)](#-the-privacy-pledge)
 [![Evidence-Based](https://img.shields.io/badge/features-evidence%20backed-9cf)](#-the-feature-matrix-evidence-backed)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 [![Made for Neurodivergent & Power Users](https://img.shields.io/badge/made%20for-neurodivergent%20%26%20power%20users-ff69b4)](#the-adhd-problem)
 
-> **`Aether` is a working codename — rename to taste.** `AGPL-3.0` is a deliberate default (see [Why AGPL](#-license)); swap it if your goals differ. The **browser engine is deliberately undecided** — see [Architecture](#architecture).
+> **`Aether` is a working codename — rename to taste.** `AGPL-3.0` is a deliberate default (see [Why AGPL](#-license)); swap it if your goals differ. The engine is **decided and shipped**: a thin overlay on stock Firefox — no fork, no build, no patches. **v1.1.0 is working today** — see [Getting Started](#getting-started); ✅ marks shipped features throughout.
 
 </div>
 
@@ -50,7 +50,6 @@
 - [Security](#security)
 - [License](#-license)
 - [Acknowledgements & Prior Art](#acknowledgements--prior-art)
-- [References](#references)
 
 ---
 
@@ -73,7 +72,7 @@ The browser quietly became the operating system of modern work. We write code in
 Four structural problems compound inside that window:
 
 1. **Browsers optimize for engagement, not intention.** Tabs, notifications, infinite feeds, and frictionless novelty are features when the goal is time-on-site. They are hazards when the goal is finishing the thing you opened the browser to do.
-2. **Tool sprawl turns a workday into a switching tax.** Knowledge work is now spread across dozens of web apps. The average company runs **89 different applications**[⁷], and every jump between them carries a cognitive cost most people never measure.
+2. **Tool sprawl turns a workday into a switching tax.** Knowledge work is now spread across dozens of web apps. The average company runs **89 different applications**, and every jump between them carries a cognitive cost most people never measure.
 3. **The interface is hostile to focus by default, and willpower is not a fix.** The modern browsing environment is structurally engineered to fragment attention. The only durable answer is to *redesign the environment* — which is precisely what a browser, the layer everything else renders inside, is uniquely positioned to do.
 4. **Users want AI, but don't trust it — and power is fragmented.** Calm UX lives in one browser, hackability in another, privacy in a third, AI in a fourth, and *none* of them are unified, local-first, agent-safe, and trustworthy. People are forced to choose between an AI that helps and an AI that doesn't sell them out. They shouldn't have to.
 
@@ -81,7 +80,7 @@ Four structural problems compound inside that window:
 
 ## The ADHD Problem
 
-For the ~**6%** of adults with ADHD[⁸] — and the far larger number who are undiagnosed or otherwise neurodivergent — every one of the problems above is amplified, and several new ones appear. ADHD is, at its core, a disorder of *executive function*: the mental machinery for **task initiation, sustained attention, working memory, time perception, and impulse control**[¹¹]. The browser stresses every single one of those systems at once.
+For the ~**6%** of adults with ADHD — and the far larger number who are undiagnosed or otherwise neurodivergent — every one of the problems above is amplified, and several new ones appear. ADHD is, at its core, a disorder of *executive function*: the mental machinery for **task initiation, sustained attention, working memory, time perception, and impulse control**. The browser stresses every single one of those systems at once.
 
 What that looks like in practice:
 
@@ -102,20 +101,20 @@ The reframe Aether is built on: **these are not character flaws, and the answer 
 
 **How much we live in the browser:**
 
-- The average adult spends roughly **7 hours a day** on screens in the US, and about **6h40m globally — close to 40% of all waking hours**[¹][²]. By some surveys, US adults are **online over 10 hours a day**[³].
+- The average adult spends roughly **7 hours a day** on screens in the US, and about **6h40m globally — close to 40% of all waking hours**. By some surveys, US adults are **online over 10 hours a day**.
 - The web browser is the connective tissue of that time: a large majority of internet users spend their sessions on research, communication, work, and content — the four things a browser mediates.
 
 **What fragmentation costs everyone:**
 
-- After a single interruption, a knowledge worker takes an average of **23 minutes and 15 seconds** to fully refocus on the original task — the landmark finding from Gloria Mark's UC Irvine research (*The Cost of Interrupted Work*, CHI 2008)[⁴].
-- The average time spent on a single screen before switching has **collapsed from ~2.5 minutes (2004) to ~47 seconds**, and roughly **44% of interruptions are self-generated**[⁵].
-- Most knowledge workers get only about **one hour of true focus per day**[⁶], while juggling a toolset that averages **89 applications** per company[⁷].
+- After a single interruption, a knowledge worker takes an average of **23 minutes and 15 seconds** to fully refocus on the original task — the landmark finding from Gloria Mark's UC Irvine research (*The Cost of Interrupted Work*, CHI 2008).
+- The average time spent on a single screen before switching has **collapsed from ~2.5 minutes (2004) to ~47 seconds**, and roughly **44% of interruptions are self-generated**.
+- Most knowledge workers get only about **one hour of true focus per day**, while juggling a toolset that averages **89 applications** per company.
 
 **What it costs the ADHD population specifically:**
 
-- Adults with ADHD report an average of **21.6 more lost-productivity days per year** ("presenteeism") than their peers, driven directly by inattention, disorganization, and executive dysfunction[⁸].
-- The total estimated US societal cost attributed to adult ADHD is roughly **$122.8 billion per year**[⁸].
-- Adults with ADHD are **~60% more likely to be fired**, **~300% more likely to quit a job impulsively**[⁹], earn an estimated **17–33% less** than peers[⁹][¹⁰], and have an employment rate of about **67% vs. 87%** for non-ADHD peers with a degree[¹⁰].
+- Adults with ADHD report an average of **21.6 more lost-productivity days per year** ("presenteeism") than their peers, driven directly by inattention, disorganization, and executive dysfunction.
+- The total estimated US societal cost attributed to adult ADHD is roughly **$122.8 billion per year**.
+- Adults with ADHD are **~60% more likely to be fired**, **~300% more likely to quit a job impulsively**, earn an estimated **17–33% less** than peers, and have an employment rate of about **67% vs. 87%** for non-ADHD peers with a degree.
 
 **The thesis, in one line:** if ~40% of your waking life happens in the browser, and the browser is the single environment where focus, distraction, research, memory, and every work tool collide — then a browser deliberately designed to protect executive function isn't a nice-to-have. It's the highest-leverage intervention available.
 
@@ -197,37 +196,39 @@ Aether is researched against five concrete user segments, in priority order:
 ## Features
 
 > Grouped by intent. Everything here is part of the vision; see the [Roadmap](#roadmap) for sequencing and the [Feature Matrix](#-the-feature-matrix-evidence-backed) for evidence-backed prioritization.
+>
+> **✅ = shipped in v1.1.0** (test-proven; details in [`overlay/README.md`](overlay/README.md)). Unmarked = still vision.
 
 ### 🧘 The Canvas — Distraction-Free Shell
-- **Zero-chrome default**: nothing visible but the webpage — no tabs, no address bar, no buttons.
-- **Keyboard-first everything**: command palette, omni/URL entry, tab switcher, settings, and actions all summoned by keybind in elegant overlays, popups, and context menus.
-- **Native vim/modal keybindings** (Normal / Insert / Command modes) — *impossible to do well via an extension*, and a beachhead for 660K+ keyboard-first users with zero good alternatives.
+- ✅ **Zero-chrome default**: nothing visible but the webpage — no tabs, no address bar, no buttons.
+- ✅ **Keyboard-first everything**: command palette, omni/URL entry, tab switcher, settings, and actions all summoned by keybind in elegant overlays, popups, and context menus.
+- ✅ **Native vim/modal keybindings** (Normal / Insert / Hint / Command modes) — *impossible to do well via an extension*, and a beachhead for 660K+ keyboard-first users with zero good alternatives.
 - **Focus & compact modes** with progressive disclosure — show exactly as much as you ask for, nothing more.
-- **Full keyboard shortcut customization** with conflict detection across modes; **keyboard-only navigation** of every chrome surface (WCAG-aligned).
+- ✅ *(TOML keymap)* **Full keyboard shortcut customization** with conflict detection across modes; **keyboard-only navigation** of every chrome surface (WCAG-aligned).
 
 ### 🗂️ Tabs & Spatial Organization
-- **Vertical tab sidebar** as the post-2025 table-stakes scaffold for workspaces.
+- ✅ **Vertical tab sidebar** as the post-2025 table-stakes scaffold for workspaces.
 - **Rich tabs**: live previews, fuzzy search, grouping, transfer between windows/workspaces, archive, rename.
-- **Doom-tab amnesty / tab graveyard**: stale tabs auto-archive to a fast, searchable, state-preserving graveyard, so closing never means losing. Declare *tab bankruptcy* safely; AI clusters the piles ("14 tabs about X — make this a project?").
+- ✅ *(close-archives + resurrect)* **Doom-tab amnesty / tab graveyard**: stale tabs auto-archive to a fast, searchable, state-preserving graveyard, so closing never means losing. Declare *tab bankruptcy* safely; AI clusters the piles ("14 tabs about X — make this a project?").
 - **Opinionated hierarchy** of **Workspaces → Profiles → Containers → Tab Groups**, with sane, batteries-included conventions for how they nest and when to use each.
-- **Project-first workspaces**: project-scoped tabs, history, cookies, and state — Aether's identity feature.
-- **Per-workspace session persistence**: scroll positions, form data, and auth state preserved per project.
-- **Context resurrection** ("Where was I?"): captures not just your tab set but the *why* (a one-line or voice note), and restores the exact working context after an interruption.
+- ✅ **Project-first workspaces**: project-scoped tabs, history, cookies, and state — Aether's identity feature.
+- ✅ *(tabs + scroll)* **Per-workspace session persistence**: scroll positions, form data, and auth state preserved per project.
+- ✅ *(scroll positions)* **Context resurrection** ("Where was I?"): captures not just your tab set but the *why* (a one-line or voice note), and restores the exact working context after an interruption.
 - **Tab unloading / hibernation**: automatic tab suspension to keep 100+ tab workflows light.
 
 ### 🎨 Theming & Ricing
-- **Fully themeable chrome**, driven entirely by design tokens / CSS variables.
-- **System theme inheritance** in the spirit of `pywal` / `matugen` / `wallust` / `base16`: switch your desktop to Catppuccin and Aether's colors, fonts, light/dark mode, palette, and icons all follow — automatically.
-- **Best-effort web-content theming** (reader mode, injected stylesheets) where sites allow it.
+- ✅ **Fully themeable chrome**, driven entirely by design tokens / CSS variables.
+- ✅ **System theme inheritance** in the spirit of `pywal` / `matugen` / `wallust` / `base16`: switch your desktop to Catppuccin and Aether's colors, fonts, light/dark mode, palette, and icons all follow — automatically.
+- ✅ *(via `:zap`/`:boost` CSS boosts)* **Best-effort web-content theming** (reader mode, injected stylesheets) where sites allow it.
 
 ### ⌨️ Configuration as Data
-- Entire browser configured in **`YAML` / `TOML` / `JSON`** — settings, keybinds, themes, layouts, statusbar, agents.
-- **Declarative, version-controllable, shareable** dotfiles — version-control your entire browser setup.
+- ✅ *(TOML)* Entire browser configured in **`YAML` / `TOML` / `JSON`** — settings, keybinds, themes, layouts, statusbar, agents.
+- ✅ **Declarative, version-controllable, shareable** dotfiles — version-control your entire browser setup.
 - **Scripting hooks** as an escape hatch for behavior that declarative config can't express.
 
 ### 🤖 Native AI (Local-First, Trustworthy)
-- **Local-first AI gateway**: speaks to **LM Studio** / **Ollama** and any OpenAI-compatible endpoint out of the box (BYOM); optional frontier models for the genuinely hard problems (your choice, your keys). The privacy claim is *architectural*.
-- **AI sidebar** with full page/DOM context, scoped to the current workspace — summarize, ask, transform.
+- ✅ **Local-first AI gateway**: speaks to **LM Studio** / **Ollama** and any OpenAI-compatible endpoint out of the box (BYOM); optional frontier models for the genuinely hard problems (your choice, your keys). The privacy claim is *architectural*.
+- ✅ *(chat; page context is a non-goal for now)* **AI sidebar** with full page/DOM context, scoped to the current workspace — summarize, ask, transform.
 - **AI page/PDF/YouTube summarization** — the one-click "show, don't tell" AI moment.
 - **Coding-agent control plane**: connect and command multiple running coding agents from inside the browser.
 - **The Spectator** — an always-on, *local* observer of your active tab, dwell time, switching patterns, and idle state, which checks your behavior against your stated intent and nudges you. Designed around three rules:
@@ -243,21 +244,21 @@ Aether is researched against five concrete user segments, in priority order:
 ### 🛡️ Privacy, Security & Content Control
 - **Native ad & tracker blocking** using a mature blocklist engine (e.g. uBlock Origin's) — built into the engine, beating MV3-limited extensions. The #1 adoption driver.
 - **Notification spam blocking**: default the notification permission to *deny*.
-- **Zero-telemetry architecture**: verifiable, by design; opt-in crash reporting only.
+- ✅ **Zero-telemetry architecture**: verifiable, by design; opt-in crash reporting only.
 - **Firewall and privacy tooling** surfaced as first-class settings.
 - A curated set of **opinionated, pre-configured extensions** that ship working out of the box.
 
 ### 🧩 Extensibility & Compatibility
-- **WebExtension API support**: a browser without password managers and uBlock Origin is dead on arrival — full extension-runtime compatibility, tested across the top extensions.
+- ✅ *(inherited from Firefox)* **WebExtension API support**: a browser without password managers and uBlock Origin is dead on arrival — full extension-runtime compatibility, tested across the top extensions.
 - **Composable modules / primitives**: features as composable building blocks, not a monolith.
 - **Frictionless migration from Chrome/Firefox**: one-click import of bookmarks, passwords, and history (most users are Chrome refugees — import or they bounce).
 - **Profile export/import**: full profile portability — users need an exit door to enter willingly.
 
 ### 🛠️ Developer & Platform-Engineer Native
-- **`tmux`/`polybar`-style statusbar**: glanceable, clickable widgets for **ArgoCD cluster status**, cluster & agent notifications, **open PRs**, current tasks, and **Timewarrior** timers.
+- ✅ *(framework + core widgets)* **`tmux`/`polybar`-style statusbar**: glanceable, clickable widgets for **ArgoCD cluster status**, cluster & agent notifications, **open PRs**, current tasks, and **Timewarrior** timers.
 - **First-class, native-feeling integrations**: **Obsidian, GitHub, Linear, Slack, Taskwarrior, Timewarrior** — read local CLIs/files directly, call remote APIs where needed.
-- **Native command palette / ex-mode**: a built-in `:command` line with tab completion, fuzzy search, and full browser access.
-- **Hideable/showable chrome** down to nothing, on a keystroke.
+- ✅ **Native command palette / ex-mode**: a built-in `:command` line with tab completion, fuzzy search, and full browser access.
+- ✅ **Hideable/showable chrome** down to nothing, on a keystroke.
 
 ### 📊 Dashboard as a Web App
 - The **new-tab page is a full, customizable web application** — your real home base.
@@ -269,7 +270,7 @@ Aether is researched against five concrete user segments, in priority order:
 - **AI re-grounding** for resilient replay: when a selector breaks because a live site changed, an agent re-finds the target instead of the workflow failing.
 - **Agent-safe web access**: agents act through a sandboxed, verified control plane (IPC / CDP / WebSocket), with reliability and graceful degradation as first-class concerns.
 - **Sandboxed workloads** run in containers under your orchestrator.
-- **Optional stealth/scraping** for automation that must survive bot detection — delivered by spinning up a **dedicated, isolated engine-level tool** (e.g. **Camoufox** / **Nodriver**) that Aether orchestrates, kept deliberately separate from your daily-driver identity. *(True fingerprint spoofing is engine-level work and a moving target[¹²]; Aether integrates the right tool rather than compromising the main browser.)*
+- **Optional stealth/scraping** for automation that must survive bot detection — delivered by spinning up a **dedicated, isolated engine-level tool** (e.g. **Camoufox** / **Nodriver**) that Aether orchestrates, kept deliberately separate from your daily-driver identity. *(True fingerprint spoofing is engine-level work and a moving target; Aether integrates the right tool rather than compromising the main browser.)*
 
 ### 🧠 Learning & Knowledge Capture
 - **Recursive graph/canvas capture**: highlight anything → save it as a node with a backlink to the source, AI-auto-tagged, droppable onto a board or straight into your **Logseq/Obsidian** graph. Every node can be a single note *or* an infinitely nestable graph of its own.
@@ -277,14 +278,14 @@ Aether is researched against five concrete user segments, in priority order:
 - The browser's superpower is **frictionless capture**; the canvas engine is borrowed, not reinvented.
 
 ### 🎯 Focus & Habits
-- **Deep-focus modes** and a pervasive distraction-free posture.
+- ✅ *(task-conditioned `:focus` sessions)* **Deep-focus modes** and a pervasive distraction-free posture.
 - **Habit building & breaking** with **commitment-device locks** for compulsive-use loops. Locks are intentionally **enforced through an external trust anchor** (a paired peer who holds the unlock, or a genuine time-lock you can't fast-forward) so they can't be trivially self-revoked — the only design under which a software blocker actually holds.
-- **Ambient, non-anxious time awareness**: glanceable elapsed time, a visual *shrinking* timer, and "this usually takes you ~X" estimates derived from your own history. Informational, never scolding.
+- ✅ *(clock · date · calm elapsed)* **Ambient, non-anxious time awareness**: glanceable elapsed time, a visual *shrinking* timer, and "this usually takes you ~X" estimates derived from your own history. Informational, never scolding.
 - **Task-initiation ramps**: one keybind opens *everything* needed for task X, and the AI breaks a daunting task down to the literal first click.
 - **Frictionless capture → deferred AI triage**: dump a thought into an inbox with zero in-the-moment decisions; AI sorts it into tasks/notes/graph later.
 
 ### 📨 Opinionated App Surfaces
-- Minimal, productivity-first, distraction-stripped reskins for high-use daily drivers like **Gmail** and **YouTube**.
+- ✅ *(the substrate: per-site CSS boosts)* Minimal, productivity-first, distraction-stripped reskins for high-use daily drivers like **Gmail** and **YouTube**.
 
 ### 🔗 Sync & Collaboration
 - **No-cloud, peer-to-peer, end-to-end-encrypted, decentralized sync** — built on local-first CRDTs (**Yjs / Automerge**) over a P2P transport (**Iroh / libp2p**), with a pragmatic fallback of syncing your state directory via **Syncthing**.
@@ -296,26 +297,28 @@ Aether is researched against five concrete user segments, in priority order:
 
 ## 📐 The Feature Matrix (Evidence-Backed)
 
-Aether is researched before it is built. Every feature is scored with **RICE** (Reach × Impact × Confidence ÷ Effort), classified with **MoSCoW** (Must/Should/Could/Won't), and typed with the **Kano** model — backed by a source URL. The full matrix lives in [`docs/feature-matrix.md`](docs/feature-matrix.md) (142 candidates → 50 council-scored → 30 detailed cards). The top of the build backbone:
+Aether is researched before it is built. Every feature is scored with **RICE** (Reach × Impact × Confidence ÷ Effort), classified with **MoSCoW** (Must/Should/Could/Won't), and typed with the **Kano** model. The full matrix lives in [`docs/feature-matrix.md`](docs/feature-matrix.md) (142 candidates → 50 council-scored → 30 detailed cards). The top of the build backbone:
 
 | Rank | Feature | Category | RICE | MoSCoW |
 |------|---------|----------|------|--------|
 | 1 | Native Ad/Tracker Blocking | Privacy & Security | 12.08 | **Must** |
 | 2 | Notification Spam Blocking | Core Browsing | 10.76 | Should |
-| 3 | Vertical Tab Sidebar | Workspace | 7.45 | **Must** |
+| 3 | Vertical Tab Sidebar ✅ | Workspace | 7.45 | **Must** |
 | 4 | Frictionless Migration from Chrome | Sync | 7.00 | **Must** |
-| 5 | WebExtension API Support | Extensibility | 6.65 | **Must** |
+| 5 | WebExtension API Support ✅ | Extensibility | 6.65 | **Must** |
 | 6 | AI Page Summarization | AI & Agents | 6.03 | Should |
 | 7 | Tab Unloading/Hibernation | Performance | 5.41 | Should |
-| 8 | Zero Telemetry Architecture | Privacy & Security | 5.33 | **Must** |
-| 9 | Tab Graveyard / Recovery | Workspace | 4.87 | Should |
+| 8 | Zero Telemetry Architecture ✅ | Privacy & Security | 5.33 | **Must** |
+| 9 | Tab Graveyard / Recovery ✅ | Workspace | 4.87 | Should |
 | 10 | Profile Export/Import | Sync | 4.85 | Should |
-| 11 | Native Command Palette / Ex-Mode | Keyboard | 4.83 | Should |
+| 11 | Native Command Palette / Ex-Mode ✅ | Keyboard | 4.83 | Should |
 | 12 | Memory-Efficient Tab Mgmt | Performance | 4.72 | Should |
-| 13 | LLM Sidebar Chat | AI & Agents | 4.56 | Should |
-| 14 | Project-First Workspaces | Workspace | 4.53 | Should |
-| 15 | Native Vim/Modal Keybindings | Keyboard | 4.26 | Should |
+| 13 | LLM Sidebar Chat ✅ | AI & Agents | 4.56 | Should |
+| 14 | Project-First Workspaces ✅ | Workspace | 4.53 | Should |
+| 15 | Native Vim/Modal Keybindings ✅ | Keyboard | 4.26 | Should |
 
+> ✅ = shipped in v1.1.0.
+>
 > **Council finding:** only **4 features reached "Must" consensus** — Ad/Tracker Blocking, Vertical Tabs, WebExtensions, and Zero Telemetry. Aether's identity features (Workspaces, Vim Keys, Local AI) are strategically critical but operationally contested, and are honestly rated high-priority **"Should"** rather than overstated as "Must."
 
 **The 12 feature categories** Aether is researched across: Core Browsing · AI & Agents · Privacy & Security · Keyboard & Input · Workspace & Organization · Extensibility · Productivity · Developer Tools · Performance · Sync & Portability · Accessibility · Social & Collaboration.
@@ -326,8 +329,8 @@ Aether is researched before it is built. Every feature is scored with **RICE** (
 
 Aether is a **UI/UX shell over a web engine** — the engine is intentionally *not* where the innovation lives.
 
-> ### ⚠️ The engine is an open decision
-> The **browser delivery vehicle is deliberately undecided.** This is the single highest-leverage architectural choice in the project, and it is being resolved by dedicated research (see [Research Methodology](#research-methodology)). The candidates:
+> ### ✅ The engine is decided — and shipped
+> **Firefox, as a thin overlay** (autoconfig + privileged chrome JS — no fork, no build step, no source patches; `overlay/`). Chromium/CEF stays the documented fallback. The candidates as researched, kept for the record:
 >
 > | Option | Upside | Cost |
 > |---|---|---|
@@ -336,7 +339,7 @@ Aether is a **UI/UX shell over a web engine** — the engine is intentionally *n
 > | **Custom shell over a system WebView** (WebView2 / WKWebView / WebKitGTK) | Lightest to build, deepest UI control, fast iteration | Engine-level features (stealth, deep privacy) delegated out; per-platform variance |
 > | **Deeply privileged extension** | Lowest effort, ship today | Hard ceiling on what's possible (no native modal keys, no zero-chrome, MV3 cage) |
 >
-> The pre-decided IPC layering (below) is **Firefox-oriented** and remains valid *only* if the Gecko path is chosen; it will be revisited the moment the engine decision lands.
+> The IPC layering below is Firefox-oriented and stands — it is the plan for the agent runtime (post-daily-drive-gate).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -353,8 +356,8 @@ Aether is a **UI/UX shell over a web engine** — the engine is intentionally *n
 │  + optional   │   tutor · researcher · …         │   the browser,    │
 │  frontier)    │   interruption budget            │   sandboxed)      │
 ├───────────────┴───────────────────────────────┴───────────────────┤
-│              WEB ENGINE  (UNDECIDED — Gecko / Chromium /           │
-│                          custom shell / privileged ext)           │
+│        WEB ENGINE  ✅ Firefox (thin overlay — no fork,             │
+│                       no build, no source patches)                │
 ├─────────────────────────────────────────────────────────────────┤
 │        SELF-HOSTED BACKEND (optional, your infra)                 │
 │  workflow engine · sandbox/containers · orchestrator · sync peer  │
@@ -384,6 +387,8 @@ Aether is a **UI/UX shell over a web engine** — the engine is intentionally *n
 ## Configuration
 
 Aether is configured the way you configure your window manager — declaratively, in plain text, in version control.
+
+> ✅ Today: TOML at `~/.config/aether/aether.toml` (keymaps, statusbar, theme, AI, boosts — see [`overlay/README.md`](overlay/README.md)). The YAML below is the fuller vision.
 
 ```yaml
 # ~/.config/aether/config.yaml
@@ -452,6 +457,8 @@ focus:
 
 Aether's heavier capabilities lean on real infrastructure you run on **your own bare-metal or VMs** — nothing here requires a vendor cloud.
 
+> Vision — not yet built. ✅ Today the only backend is your local model runner (Ollama / LM Studio / any OpenAI-compatible endpoint).
+
 | Capability | Self-hosted engine (suggested, all OSS-friendly) |
 |---|---|
 | Durable, replayable workflows | **Windmill** (dev-friendly) · **Temporal** (heaviest guarantees) · **n8n** (largest integration library) |
@@ -467,43 +474,35 @@ Aether ships with connector configs and health-checks for each, and treats them 
 
 ## Getting Started
 
-> ⚠️ **Aether is in the research / RFC stage.** No browser, UI, or extension code exists yet — the repository is rigorous, evidence-backed feature research (see [Research Methodology](#research-methodology)). Commands below describe the *intended* developer setup and will firm up as the shell lands. See [Roadmap](#roadmap).
+✅ **Aether v1.1.0 runs today** as an overlay on stock Firefox.
 
-**Prerequisites (intended)**
-- Node.js LTS and a package manager (`pnpm` recommended)
-- A local model runner — **LM Studio** or **Ollama** — for the AI layer
-- *(Optional)* A self-hosted workflow engine and container runtime for automation
+**Prerequisites:** Firefox (any Firefox-family browser works), and optionally **Ollama** / **LM Studio** for the AI features.
 
 ```bash
-# Clone
-git clone https://github.com/<your-org>/aether.git
-cd aether
-
-# Install
-pnpm install
-
-# Run the shell in dev mode
-pnpm dev
-
-# Build a desktop bundle
-pnpm build
+git clone https://github.com/shaiknoorullah/Aether
+cd Aether/overlay
+./install.sh     # installs the autoconfig loader (sudo) + provisions the 'aether' profile
+./bin/aether     # launch
 ```
 
-On first run, Aether looks for `~/.config/aether/config.yaml`. If none exists, it scaffolds a minimal one you can grow.
+Config lives at `~/.config/aether/aether.toml` — git it with your dotfiles. Full
+keybindings, commands, and per-feature docs: [`overlay/README.md`](overlay/README.md).
+Arch users: `pacman -Syu` replaces the Firefox dir — re-run `install.sh` after
+Firefox upgrades (or add a pacman hook).
 
 ---
 
 ## Roadmap
 
-Shipping in vertical slices — each milestone is usable on its own. Sequencing is informed by the [Feature Matrix](#-the-feature-matrix-evidence-backed).
+Shipping in vertical slices — each milestone is usable on its own. Sequencing is informed by the [Feature Matrix](#-the-feature-matrix-evidence-backed). ✅ marks the parts shipped as of v1.1.0.
 
-- [ ] **v0.0 — Decide the engine.** Resolve Gecko vs Chromium vs custom-shell via dedicated research; lock the IPC/control-plane architecture.
-- [ ] **v0.1 — Home base.** Custom new-tab dashboard · `tmux`-style statusbar (ArgoCD, PRs, timers) · AI sidebar wired to LM Studio.
-- [ ] **v0.2 — The Canvas.** Zero-chrome shell · keyboard-driven overlays · native modal keybindings · rich tabs (previews, fuzzy search, archive) · full theming + system inheritance.
-- [ ] **v0.3 — Spaces & config.** Workspaces/Profiles/Containers/Groups hierarchy · declarative YAML/TOML config + hooks · native ad/tracker blocking · WebExtension support · Chrome/Firefox import.
+- [x] **v0.0 — Decide the engine.** Resolved: Firefox thin overlay ✅; IPC/control-plane architecture locked ✅.
+- [ ] **v0.1 — Home base.** Custom new-tab dashboard · `tmux`-style statusbar ✅ (framework + core widgets; ArgoCD/PR widgets pending) · AI sidebar wired to a local gateway ✅.
+- [ ] **v0.2 — The Canvas.** Zero-chrome shell ✅ · keyboard-driven overlays ✅ · native modal keybindings ✅ · rich tabs (archive ✅ via graveyard; previews/fuzzy pending) · full theming + system inheritance ✅.
+- [ ] **v0.3 — Spaces & config.** Workspaces/Containers ✅ (Profiles/Groups pending) · declarative TOML config ✅ (hooks pending) · ad/tracker blocking (via uBO today) · WebExtension support ✅ · Chrome/Firefox import.
 - [ ] **v0.4 — Resident AI.** The Spectator (local, flow-aware) · Tutor agent (spaced repetition + TTS/STT) · Researcher agent · interruption budget · transparent reasoning.
 - [ ] **v0.5 — Workflows.** Record→replay durable workflows on a self-hosted engine · AI re-grounding · sandboxed container workloads · agent-safe IPC/CDP control surface.
-- [ ] **v0.6 — Knowledge & focus.** Recursive graph capture → Logseq/Obsidian · context resurrection · habit/commitment locks · ambient time · task-initiation ramps.
+- [ ] **v0.6 — Knowledge & focus.** Recursive graph capture → Logseq/Obsidian · context resurrection ✅ (scroll) · habit/commitment locks · ambient time ✅ · task-initiation ramps.
 - [ ] **v0.7 — Decentralized sync.** P2P, e2e-encrypted, CRDT-based sync (no cloud) · profile export/import.
 - [ ] **v0.8 — Collaboration.** Real-time team/task views · body-doubling · opinionated Gmail/YouTube surfaces.
 - [ ] **v1.0 — Aether.** All of the above, stable, documented, and lovable.
@@ -512,15 +511,13 @@ Shipping in vertical slices — each milestone is usable on its own. Sequencing 
 
 ## Research Methodology
 
-Aether's defining phase is **research, not code** — the most thorough phase of the project by design. Feature discovery runs as a **multi-agent research swarm**: departments (discovery, competitive intelligence, market/domain, technical/architecture) feed an **executive council** (Product Strategist, Technical Architect, User Advocate, Security Auditor, Devil's Advocate) that scores every candidate with **RICE + MoSCoW + Kano**, with **Chain-of-Verification** validation and an evidence URL behind every claim.
-
-- **Wave 1 (v1, complete):** 5-wave pipeline → 16 reports, 142 candidates, council scoring. Findings live in [`docs/research-data/`](docs/research-data/) and the assembled [`docs/feature-matrix.md`](docs/feature-matrix.md). *(Preserved — never overwritten.)*
-- **Wave 2 (v2, in progress):** a **20-team** deep-research expansion driven by the **Feynman** research CLI, orchestrated team-by-team via **agent-manager** tmux sessions and a Claude **workflow**. Teams span the five user segments (now including a dedicated **ADHD/executive-function** team), six competitive tracks, four market/domain tracks, three technical/architecture tracks (including the **engine-decision** team), and two synthesis/red-team tracks. Output lands in `docs/research-v2/` and `outputs/`, additively.
-
-Tooling: [Feynman](https://www.feynman.is) (`deepresearch` / `compare` / `review`), the `agent-manager` lifecycle skill, Postgres/Redis for structured findings (when provisioned), and Memory-Keeper for context snapshots.
+Aether was researched before it was built — two multi-agent research waves,
+feature matrices, competitive and technical deep-dives. The full corpus, method,
+and sources live in [`docs/`](docs/) and [`outputs/`](outputs/); the assembled
+matrices are [`docs/feature-matrix.md`](docs/feature-matrix.md) and
+[`docs/research-v2/feature-matrix-v2.md`](docs/research-v2/feature-matrix-v2.md).
 
 ---
-
 ## The Long-Term Vision
 
 A world where the most-used piece of software in a person's day is *on their side* — where the environment in which we think, build, and learn is designed to protect attention rather than harvest it, and where AI assistance never costs you your sovereignty.
@@ -602,30 +599,3 @@ Aether stands on the shoulders of projects that got pieces of this right, and bo
 - **The research that grounds this project:** Gloria Mark and colleagues at UC Irvine, whose work on interruption and attention gives the problem its shape.
 
 ---
-
-## References
-
-1. *Average Screen Time Statistics 2026* — DemandSage. https://www.demandsage.com/screen-time-statistics/
-2. *Screen Time Statistics* — Crown Counseling (global average; ~40% of waking hours). https://crowncounseling.com/statistics/screen-time/
-3. *Americans now spend 10 hours online every day* — Optimum survey via Fox News. https://www.foxnews.com/tech/americans-now-spend-10-hours-online-every-day
-4. *Context switching cost: the 23-minute refocus* — summary of Gloria Mark et al., *The Cost of Interrupted Work* (CHI 2008) & *No Task Left Behind?* (CHI 2005). https://contextcost.com/
-5. *It Takes 23 Minutes to Refocus After One Distraction (2026)* — attention-span collapse to 47s; ~44% self-generated interruptions. https://pomogolo.com/blog/23-minute-refocus-cost
-6. *Every Distraction Costs You 23 Minutes* — RescueTime (2020): ~1 hour of true focus/day. https://tctecinnovation.com/blogs/daily-blog/every-distraction-costs-you-23-minutes
-7. *Context Switching Costs $450B/Year* — average company uses 89 applications. https://www.waymakeros.com/learn/context-switching-costs-450b
-8. *50+ Essential Adult ADHD Statistics (2025–2026)* — Huntington Psychological Services (CDC 6.0% / ~15.5M US adults; global 6.76% / ~366.3M; 21.6 lost-productivity days/yr; ~$122.8B/yr US cost). https://huntingtonpsych.com/blog/adult-adhd-statistics
-9. *ADHD Statistics and Facts* — ADHDAdvisor.org (60% more likely fired; 300% more likely to quit impulsively; up to 33% lower earnings). https://www.adhdadvisor.org/learn/adhd-statistics-and-facts
-10. *ADHD Employment Statistics (2025)* — MyDisabilityJobs (employment 67% vs 87%; ~17% lower income). https://mydisabilityjobs.com/statistics/adhd-employment/
-11. *Workplace Realities of ADHD* — NCDA (core challenges: task initiation, focus, time management). https://www.ncda.org/aws/NCDA/pt/sd/news_article/603220/
-12. *AI Browser Automation in 2026: Camoufox, Nodriver & Stealth* — engine-level fingerprint spoofing as a separate, specialized concern. https://www.proxies.sx/blog/ai-browser-automation-camoufox-nodriver-2026
-
-> **Market figures** (Chrome share, switching intent, Brave MAU, Arc's wind-down, personalization demand) are drawn from Aether's own competitive research; see [`docs/research-data/`](docs/research-data/), [`docs/competitive-landscape.md`](docs/competitive-landscape.md), and [`outputs/`](outputs/) for the full sourced evidence trail. The Wave-2 research pass refreshes and re-verifies these.
-
----
-
-<div align="center">
-
-**Aether** — *because the place you spend most of your life should be on your side.*
-
-Built in the open, for the brains and the builders the defaults forgot.
-
-</div>

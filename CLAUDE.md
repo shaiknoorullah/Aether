@@ -2,9 +2,9 @@
 
 ## What This Is
 
-Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **This is not a startup. Not a product. I will never monetize it.** If other people adopt it the way Zen or LibreWolf got adopted, cool; if nobody ever installs it but me, it still succeeded.
+Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **Not a startup, never monetized** — but personal-first, not personal-only: I build what I daily-drive, and the hope is it grows into something the community adopts, the way Zen and LibreWolf did. My own daily use stays the requirements filter until real users exist.
 
-Honest status: I've produced ~50 research documents and zero lines of browser code. The research phase is over. Next milestone: the spike.
+Honest status: **v1.1.0 is built and working** — the full adoption floor (modal keys+palette, statusbar widgets, pywal theming, vertical tabs+graveyard, workspaces+persistence, EF supports, local-AI sidebar) plus site boosts (`:zap`, AI `:boost`) and context resurrection. ~5,100 runtime-path lines, 322 unit tests, screenshot-verified visual suite, zero deps/build/patches. Current milestone: the 30-day daily-drive gate (`docs/execution-plan.md` Phase 2).
 
 ## Rules I Hold Myself To
 
@@ -46,7 +46,7 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Repository Map
 
-- `README.md` — vision doc (still carries the startup framing; rewrite pending)
+- `README.md` — public front page (personal-tool framing, current)
 - `docs/research-v2/feature-matrix-v2.md` — v2 matrix (scoring is historical; technical content still useful)
 - `docs/feature-matrix.md` — v1 matrix (preserved)
 - `docs/research-data/`, `docs/research-v2/` — v1/v2 pipeline outputs
@@ -59,10 +59,10 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Next
 
-1. **The spike.** Thin Gecko overlay proving zero-chrome + modal keyboard interception (the Zen/LibreWolf pattern). Then I daily-drive it. The engine decision gets validated by use, not by another document.
-2. Grow the overlay feature-by-feature from my actual workflow — keybindings → blocking → workspaces → local-AI bridge → agent runtime — each one gated by the maintenance budget.
-3. Rewrite `README.md` in this framing; refresh or delete `AGENTS.md`.
-4. Iroh vs js-libp2p: decided when sync gets built, not before.
+1. **The daily-drive gate** (Phase 2): 30 days as my default browser, friction log, one line per annoyance. Every entry becomes a fix, a cut, or evidence for what ships next.
+2. Post-gate, in this order: agent runtime (decision #2 control plane), deeper personalized-web tiers, sync (resolving Iroh vs js-libp2p then, not before).
+3. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
+4. Monthly rebase drill: re-run `overlay/install.sh` after each Firefox update (pacman hook), log the cost.
 
 ## Tools & Infrastructure
 
