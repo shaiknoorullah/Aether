@@ -57,7 +57,9 @@ Phase 2 (the 30-day daily-drive gate) runs underneath all of it, from 2026-08-14
 | `r4` | Panel primitive + tab panel | Friction-log #3, day 1: a strip is not how I find a tab. **Cuts f4's vertical strip** |
 | `r5` | Settings panel + DoH | Config discoverable without reading a spec; layered file so the dotfile is never rewritten |
 
-Riding along: extract from `aether.uc.js` (2,009 lines) as each area is touched. Not a separate milestone.
+**Built 2026-08-14.** Pure layer by 27 agents (five TDD teams of five, one foundation engineer, one integrator); glue wired serially afterwards. 322 → 787 tests, 786 pass, 1 todo. The vertical strip is cut: `T` opens the tab panel, `tabs_toggle` is deleted from the registry, and f4's `sidebar.revamp`/`verticalTabs` prefs are reverted in the same change so the native strip cannot render in its place.
+
+**The ride-along refactor did not happen.** `aether.uc.js` went from 2,009 to 2,688 lines — it grew by a third instead of shrinking. This is exactly what the budget review predicted about a refactor promised as a side effect of feature work, and the CI line-count ceiling it recommended is still not in place. Either that ceiling lands before v1.3.0 or the promise should be dropped from the plan rather than repeated.
 
 ## v1.3.0 — The Extension Pass
 
