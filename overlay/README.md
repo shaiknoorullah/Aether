@@ -1,4 +1,4 @@
-# Aether Overlay — v1.1.0 (the adoption floor + boosts + resurrection)
+# Aether Overlay — v1.2.0 (floor + boosts + resurrection + the rice pass)
 
 Zero-chrome, modal, themed, workspace-aware Firefox overlay. No fork, no build
 step, no dependencies. The loader is our own ~45 lines of autoconfig
@@ -86,7 +86,7 @@ as-is.
 | `j` / `k` | scroll down / up | | `t` | new tab |
 | `d` / `u` | half-page down / up | | `x` | close tab (→ graveyard) |
 | `gg` / `G` | top / bottom | | `J` / `K` | next / previous tab |
-| `H` / `L` | history back / forward | | `T` | toggle vertical tabs |
+| `H` / `L` | history back / forward | | `T` | tab panel (search, MRU, marks) |
 | `o` | open (summon urlbar) | | `r` | reload |
 | `O` | open in new tab | | `f` | link hints (home-row labels) |
 | `i` | insert mode | | `a` | toggle AI sidebar |
@@ -160,7 +160,7 @@ seed `~/.config/aether/aether.toml` if absent.
 ## Tests
 
 ```sh
-node --test overlay/test/unit/      # 322 tests, node:test + node:assert only
+node --test overlay/test/unit/      # 794 tests, node:test + node:assert only
 overlay/test/visual/run.sh          # real-browser scenarios under Xvfb
 ```
 
