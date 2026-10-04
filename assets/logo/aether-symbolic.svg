@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <title>Aether (symbolic)</title>
+  <!-- Filled paths only (no strokes), one colour: GTK recolours *-symbolic icons by fill. -->
+  <path fill="#2e3436" fill-rule="evenodd" d="M8 0.94 L15.9 15.2 L0.1 15.2 Z M3.5 13.2 L12.5 13.2 L8 5.06 Z"/>
+</svg>
