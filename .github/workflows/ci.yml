@@ -37,7 +37,10 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck --version
-          shellcheck overlay/install.sh overlay/bin/aether scripts/*.sh
+          # maintained scripts only — scripts/run_fleet.sh is retired research
+          # tooling (CLAUDE.md: historical) and is not linted
+          shellcheck overlay/install.sh overlay/bin/aether \
+            scripts/check-budget.sh scripts/render-icons.sh
 
       - name: desktop entry
         run: |
