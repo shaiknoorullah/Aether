@@ -28,6 +28,14 @@ highlights live in `docs/releases/`.
 - CLAUDE.md status current — v1.1.0 built, gate in progress ([3636340](https://github.com/shaiknoorullah/Aether/commit/36363405bdfb3147edf07ef809d9db6e879b8ee5))
 - rewrite root README for the personal tool it actually is ([c95ad4f](https://github.com/shaiknoorullah/Aether/commit/c95ad4f0234225d53171568442a4022a485bc1fe))
 
+### Build & release
+
+- **aur**: aether-git PKGBUILD draft — not published ([3309135](https://github.com/shaiknoorullah/Aether/commit/3309135424bf53a1aaba06dbe5690d280c17b6a9))
+- shellcheck only the maintained scripts ([86e1bc4](https://github.com/shaiknoorullah/Aether/commit/86e1bc478aada045224867da806d1135a5f71ada))
+- tag-driven release — deterministic tarball, SHA256SUMS, provenance, notes ([71e5084](https://github.com/shaiknoorullah/Aether/commit/71e50844886fb7dad74660db51c5fcfb252c4eda))
+- unit tests, glue-ceiling budget check, shellcheck, desktop-entry lint ([158b165](https://github.com/shaiknoorullah/Aether/commit/158b165a13e7cea7069f3ed90b54547d8d0aa2b1))
+- git-cliff changelog from conventional commits + release-notes convention ([d6d785e](https://github.com/shaiknoorullah/Aether/commit/d6d785e0a408d3d9abb606d4abd1182450a15ef0))
+
 ## 1.1.0 — 2026-08-13
 
 ### Features
