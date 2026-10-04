@@ -126,9 +126,18 @@ log "firefox app dir: ${FIREFOX_DIR}"
 # Our own ~40-line loader (overlay/loader/) — no external dependency.
 # If the browser already has an autoconfig file (LibreWolf/Waterfox), append to
 # it; otherwise install a fresh config.js (autoconfig skips its first line).
+# first_existing <path...> — the first path that exists (an unmatched glob
+# stays literal and fails -e), or nothing.
+first_existing() {
+  local f
+  for f in "$@"; do
+    [[ -e "$f" ]] && { printf '%s\n' "$f"; return 0; }
+  done
+  return 0
+}
 install_autoconfig() {
   local existing_cfg
-  existing_cfg="$(ls "${FIREFOX_DIR}"/*.cfg 2>/dev/null | head -1 || true)"
+  existing_cfg="$(first_existing "${FIREFOX_DIR}"/*.cfg)"
   $1 mkdir -p "${FIREFOX_DIR}/defaults/pref"
   if [[ -n "$existing_cfg" ]]; then
     if ! grep -q "AETHER-LOADER" "$existing_cfg"; then
@@ -143,7 +152,7 @@ install_autoconfig() {
 }
 autoconfig_current() {
   local cfg
-  cfg="$(ls "${FIREFOX_DIR}"/*.cfg "${FIREFOX_DIR}"/config.js 2>/dev/null | head -1 || true)"
+  cfg="$(first_existing "${FIREFOX_DIR}"/*.cfg "${FIREFOX_DIR}"/config.js)"
   [[ -n "$cfg" ]] && grep -q "AETHER-LOADER" "$cfg" 2>/dev/null &&
     cmp -s "${OVERLAY_DIR}/loader/zz-aether.js" "${FIREFOX_DIR}/defaults/pref/zz-aether.js"
 }
