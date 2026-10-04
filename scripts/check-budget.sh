@@ -4,12 +4,14 @@
 #
 # The design review (docs/design-review-2026-08-14.md §6, #57) found that a
 # glue refactor promised "as a side effect of feature work" never happens, and
-# recommended a CI line ceiling on aether.uc.js. v1.2.0 left it at 2,688. The
-# ceiling below is that plus a small margin: growth past it means either the
-# extraction happens first, or the ceiling is raised in a commit that says why.
+# recommended a CI line ceiling on aether.uc.js. v1.2.0 shipped at 2,688 and
+# its 2026-10-04 verification fixes (13 glue defects, PR #8) took it to 2,761.
+# The ceiling below is that plus a small margin: growth past it means either
+# the extraction happens first, or the ceiling is raised in a commit that says
+# why.
 set -euo pipefail
 
-GLUE_CEILING=2700
+GLUE_CEILING=2775
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 O="$ROOT/overlay"
