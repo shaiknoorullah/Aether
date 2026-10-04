@@ -1,16 +1,88 @@
 #!/usr/bin/env bash
 # Aether overlay installer.
-# Provisions the 'aether' Firefox profile and wires in the self-owned
-# autoconfig loader (overlay/loader/ — no external dependency).
+# Provisions the 'aether' Firefox profile, wires in the self-owned autoconfig
+# loader (overlay/loader/ — no external dependency), and puts an Aether entry
+# with its icon in the app launcher.
+#
+#   ./install.sh                      everything (autoconfig needs sudo once)
+#   ./install.sh --launcher-only      just the app-launcher entry + icons
+#   ./install.sh --uninstall-launcher remove the launcher entry + icons only —
+#                                     never the profile, never the dotfiles
 set -euo pipefail
 
 OVERLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOGO_DIR="$(cd "${OVERLAY_DIR}/.." && pwd)/assets/logo"
 PROFILE_NAME="aether"
 MOZ_DIR="${HOME}/.mozilla/firefox"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/aether"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+ICON_SIZES=(16 24 32 48 64 128 256 512)
 
 log() { printf '\033[1;35m[aether]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[aether]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# --- launcher: desktop entry + hicolor icons, per-user, no sudo --------------
+# Launchers find apps through $XDG_DATA_HOME/applications and icons through the
+# hicolor theme; caches are refreshed when the tools exist and skipped when not.
+refresh_launcher_caches() {
+  if command -v update-desktop-database >/dev/null; then
+    update-desktop-database -q "${DATA_DIR}/applications" 2>/dev/null || true
+  fi
+  if command -v gtk-update-icon-cache >/dev/null; then
+    gtk-update-icon-cache -q -t -f "${DATA_DIR}/icons/hicolor" 2>/dev/null || true
+  fi
+  if command -v kbuildsycoca6 >/dev/null; then
+    kbuildsycoca6 >/dev/null 2>&1 || true
+  fi
+}
+
+install_launcher() {
+  local size launcher exec_path
+  [[ -d "$LOGO_DIR" ]] || die "no logo assets at ${LOGO_DIR}"
+  for size in "${ICON_SIZES[@]}"; do
+    install -Dm644 "${LOGO_DIR}/png/aether-${size}.png" \
+      "${DATA_DIR}/icons/hicolor/${size}x${size}/apps/aether.png"
+  done
+  install -Dm644 "${LOGO_DIR}/aether.svg" "${DATA_DIR}/icons/hicolor/scalable/apps/aether.svg"
+  install -Dm644 "${LOGO_DIR}/aether-symbolic.svg" \
+    "${DATA_DIR}/icons/hicolor/symbolic/apps/aether-symbolic.svg"
+
+  # Exec must be absolute (bin/aether is not on PATH); quoted per the desktop
+  # entry spec so a checkout path with spaces still launches.
+  launcher="${OVERLAY_DIR}/bin/aether"
+  exec_path="\"${launcher//\"/\\\"}\""
+  mkdir -p "${DATA_DIR}/applications"
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" == "Exec=aether"* ]]; then
+      printf 'Exec=%s%s\n' "$exec_path" "${line#Exec=aether}"
+    else
+      printf '%s\n' "$line"
+    fi
+  done < "${OVERLAY_DIR}/share/aether.desktop" > "${DATA_DIR}/applications/aether.desktop"
+  chmod 644 "${DATA_DIR}/applications/aether.desktop"
+  refresh_launcher_caches
+  log "launcher entry: ${DATA_DIR}/applications/aether.desktop (search \"Aether\")"
+}
+
+uninstall_launcher() {
+  local size
+  rm -f "${DATA_DIR:?}/applications/aether.desktop" \
+        "${DATA_DIR:?}/icons/hicolor/scalable/apps/aether.svg" \
+        "${DATA_DIR:?}/icons/hicolor/symbolic/apps/aether-symbolic.svg"
+  for size in "${ICON_SIZES[@]}"; do
+    rm -f "${DATA_DIR:?}/icons/hicolor/${size}x${size}/apps/aether.png"
+  done
+  refresh_launcher_caches
+  log "launcher entry and icons removed (profile and dotfiles untouched)"
+}
+
+case "${1:-}" in
+  "") ;;
+  --launcher-only) install_launcher; exit 0 ;;
+  --uninstall-launcher) uninstall_launcher; exit 0 ;;
+  *) die "unknown option: $1 (try --launcher-only or --uninstall-launcher)" ;;
+esac
 
 # --- 1. Locate the Firefox installation ------------------------------------
 # Autoconfig is read from the *application* directory — the one holding
@@ -87,15 +159,23 @@ else
 fi
 
 # --- 3. Create the profile ---------------------------------------------------
+# Firefox 147+ keeps profiles under $XDG_CONFIG_HOME/mozilla/firefox when
+# ~/.mozilla does not exist (fresh machines); existing setups stay legacy.
+# Search both, legacy first — the same order Firefox itself uses.
 resolve_profile() {
-  [[ -f "${MOZ_DIR}/profiles.ini" ]] || return 0
-  awk -F= -v name="$PROFILE_NAME" -v moz="$MOZ_DIR" '
-    /^\[/{n=""; p=""; rel=1}
-    $1=="Name"{n=$2}
-    $1=="IsRelative"{rel=$2}
-    $1=="Path"{p=$2}
-    n==name && p!="" {print (rel=="1" ? moz "/" p : p); exit}
-  ' "${MOZ_DIR}/profiles.ini"
+  local moz
+  for moz in "$MOZ_DIR" "${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox"; do
+    [[ -f "${moz}/profiles.ini" ]] || continue
+    awk -F= -v name="$PROFILE_NAME" -v moz="$moz" '
+      /^\[/{n=""; p=""; rel=1}
+      $1=="Name"{n=$2}
+      $1=="IsRelative"{rel=$2}
+      $1=="Path"{p=$2}
+      n==name && p!="" {print (rel=="1" ? moz "/" p : p); found=1; exit}
+      END{exit !found}
+    ' "${moz}/profiles.ini" && return 0
+  done
+  return 0
 }
 
 profile_path="$(resolve_profile)"
@@ -130,4 +210,7 @@ else
   log "keeping existing ${CONFIG_DIR}/aether.toml"
 fi
 
-log "done. launch with: ${OVERLAY_DIR}/bin/aether"
+# --- 6. App launcher entry ---------------------------------------------------
+install_launcher
+
+log "done. launch from your app launcher (\"Aether\") or: ${OVERLAY_DIR}/bin/aether"

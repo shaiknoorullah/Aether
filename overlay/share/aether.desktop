@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Aether
+GenericName=Web Browser
+Comment=Keyboard-driven, local-first browser — a thin overlay on Firefox
+# install.sh rewrites Exec to the absolute path of overlay/bin/aether
+Exec=aether %u
+Icon=aether
+Terminal=false
+StartupNotify=true
+StartupWMClass=aether
+Categories=Network;WebBrowser;
+# Offered as a candidate handler only; install.sh never sets it as the default.
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+Keywords=browser;web;internet;aether;firefox;vim;
+Actions=purge;
+
+[Desktop Action purge]
+Name=Launch with a fresh startup cache
+Exec=aether -purge

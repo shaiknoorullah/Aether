@@ -108,8 +108,10 @@ command.
 
 ```
 overlay/
-  install.sh              provision the 'aether' profile + autoconfig loader
-  bin/aether              launcher (firefox --no-remote -P aether)
+  install.sh              profile + autoconfig loader + app-launcher entry
+  bin/aether              launcher (firefox --no-remote --class/--name aether -P aether)
+  share/aether.desktop    app-launcher entry (Exec rewritten at install)
+  VERSION                 the one version string (bin/aether --version)
   prefs/user.js           telemetry-off + hardening + vertical-tab/restore prefs
   config/aether.toml      keymap + options → ~/.config/aether/aether.toml
   loader/                 our autoconfig loader (replaces fx-autoconfig)
@@ -149,13 +151,25 @@ overlay/
 ```sh
 cd overlay
 ./install.sh            # needs sudo only for the loader files in /usr/lib/firefox
-./bin/aether            # first run; -purge to clear the startup cache after script edits
+./bin/aether            # or search "Aether" in your app launcher
+./bin/aether -purge     # clear the startup cache after script edits
+./bin/aether --version  # overlay version + the Firefox it runs on
 ```
 
 `install.sh` does: install `loader/aether-loader.cfg` (+ `zz-aether.js` pref)
 into the Firefox install dir (env `FIREFOX_DIR` to override detection) → create
-the `aether` profile → symlink `overlay/chrome` into it → install `user.js` →
-seed `~/.config/aether/aether.toml` if absent.
+the `aether` profile (legacy `~/.mozilla/firefox`, or Firefox 147+'s XDG
+location on fresh machines) → symlink `overlay/chrome` into it → install
+`user.js` → seed `~/.config/aether/aether.toml` if absent → install the app
+launcher entry and icons under `${XDG_DATA_HOME:-~/.local/share}` (per-user, no
+sudo). The window identifies as `aether` — X11 `WM_CLASS` class verified on
+Firefox 150; the Wayland `app_id` comes from `--name` and is not yet verified on
+a live compositor — so docks group it as Aether, not Firefox. Aether is offered as a browser for
+http/https links but never made the default.
+
+`./install.sh --launcher-only` (re)installs just the launcher entry;
+`./install.sh --uninstall-launcher` removes it and the icons — never the
+profile, never the dotfiles.
 
 ## Tests
 
