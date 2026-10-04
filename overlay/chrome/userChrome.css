@@ -259,6 +259,16 @@
   opacity: 0;
   transform: translateY(4px);
 }
+/* [hidden] is display:none, and nothing transitions out of display:none — the
+   opening state has to be declared, or the motion above never plays. */
+@starting-style {
+  #aether-palette:not([hidden]),
+  #aether-panel:not([hidden]),
+  #aether-whichkey:not([hidden]) {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
 
 /* The OS wins, and it wins permanently: applyStyle() regenerates the var
    element on every reload, so a JS override would be undone by the next save.

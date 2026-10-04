@@ -117,7 +117,6 @@
     settingSavedMessage,
     settingResetMessage,
     settingRejectedMessage,
-    LOCAL_CONFIG_HEADER,
   } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-strings.sys.mjs"
   );
@@ -278,16 +277,20 @@
         // r4
         tabs: () => this.openPanel(this.tabPanelSource()),
         tab_select: ctx => this.selectTab(ctx?.args?.[0]),
-        tab_rename: ctx => this.setTabMeta(this.currentTabKey(), { rename: ctx?.args?.slice(1).join(" ") }),
-        tab_tag: ctx => this.setTabMeta(this.currentTabKey(), { tags: ctx?.args?.slice(1) }),
-        tab_pin: () => this.setTabMeta(this.currentTabKey(), { pin: this.nextPin() }),
+        tab_rename: ctx => this.setTabMeta(this.tabKeyArg(ctx), { rename: ctx?.args?.slice(1).join(" ") }),
+        tab_tag: ctx => this.setTabMeta(this.tabKeyArg(ctx), { tags: ctx?.args?.slice(1) }),
+        tab_pin: ctx =>
+          this.setTabMeta(ctx?.args?.length ? this.tabKeyArg(ctx) : this.currentTabKey(), { pin: this.nextPin() }),
         tab_duplicate: () => this.win.gBrowser.duplicateTab(this.win.gBrowser.selectedTab),
-        tab_move_ws: ctx => this.switchWorkspace(ctx?.args?.[1]),
+        tab_move_ws: ctx => this.moveTabToWorkspace(this.tabKeyArg(ctx), ctx?.args?.slice(1).join(" ")),
         tab_pin_goto: ctx => this.gotoPin(ctx?.args?.[0]),
         mark_set: ctx => this.setMark(ctx?.args?.[0]),
         mark_jump: ctx => this.jumpMark(ctx?.args?.[0]),
         // r5
-        settings: () => this.openPanel(this.settingsPanelSource()),
+        settings: () => {
+          this.localConfig = null; // re-seed from what is on disk now
+          this.openPanel(this.settingsPanelSource());
+        },
         describe: ctx => this.showMessage(describeCommand(ctx?.args?.[0] ?? "")),
 
         // panel mode, dispatched by the key engine
@@ -505,7 +508,15 @@
           // handled normally — it has no sequence to complete.
           if (!this.whichKeyForced || decision.command !== "which_key") this.hideWhichKey();
           this.leaveTransientMode(modeBefore, decision.command);
-          this.run(decision.command, { decision, modeBefore });
+          // Keymap arguments ("tab_pin_goto 1", m<char>) ride on the decision;
+          // commands read ctx.args whether the palette or a key sent them.
+          this.run(decision.command, { decision, modeBefore, args: decision.args ?? [] });
+          break;
+        case "await_arg":
+          // m / ' wait for exactly one character; the key is ours, not the page's.
+          this.consume(event);
+          this.clearPendingTimer();
+          this.hideWhichKey();
           break;
         case "pending":
           this.consume(event);
@@ -523,6 +534,7 @@
           break;
       }
       this.renderStatus();
+      this.flushPendingKeymap();
     }
 
     // One timer for every scheduled widget; none scheduled → zero timers.
@@ -548,6 +560,8 @@
       this.win.clearTimeout(this.pendingTimer);
       this.pendingTimer = this.win.setTimeout(() => {
         this.engine.handleTimeout();
+        // The sequence is over; its which-key panel goes with it.
+        if (!this.whichKeyForced) this.hideWhichKey();
         this.renderStatus();
       }, this.opt("pending_timeout_ms"));
     }
@@ -573,6 +587,7 @@
 
     setMode(mode) {
       this.engine.setMode(mode);
+      this.flushPendingKeymap();
       // Pick styling lives and dies with hint mode.
       if (mode !== MODE.HINT && this.bar) delete this.bar.dataset.pick;
       this.renderStatus();
@@ -823,11 +838,9 @@
         return;
       }
       const record = records[index === -1 ? 0 : index];
-      AetherGraveyard.exhume(record.id);
       this.closePalette();
       this.setMode(MODE.NORMAL);
-      this.newTab();
-      this.navigate(record.url);
+      this.exhumeRecord(record);
     }
 
     // --- workspaces ----------------------------------------------------------
@@ -1839,6 +1852,7 @@
       if (event.detail?.adoptedBy) return; // moved to another window, not dead
       if (PrivateBrowsingUtils.isWindowPrivate(this.win)) return; // never recorded, privacy rule
       const tab = event.target;
+      if (tab._aetherMoving) return; // r4 move-to-workspace: reopened elsewhere
       const url = this.win.gBrowser.getBrowserForTab(tab)?.currentURI?.spec;
       if (!isBuriable(url)) return; // blank/about: tabs carry no context
       AetherGraveyard.bury({
@@ -1846,6 +1860,7 @@
         title: tab.label ?? "",
         closedAt: Date.now(),
         workspace: this.workspaceOf(tab), // f5: buries carry the workspace name
+        meta: this.tabMeta()[this.tabId(tab)], // r4: rename/tags/mark ride along
       });
     }
 
@@ -1968,6 +1983,7 @@
         doc.documentElement.appendChild(el);
       }
       el.textContent = emitStyleCss(style);
+      this.styleRejected = rejected;
       if (rejected.length) this.showMessage(styleRejectedMessage(rejected.join(", ")));
       return rejected;
     }
@@ -2074,11 +2090,25 @@
       const { changed, restartOnly } = diffConfig(previous, next);
       // Rebuilding the key matcher out of insert or hint mode would swallow
       // the rest of what you were typing, and hint mode has live child state.
-      const defer = changed.has("keymap") && !deferKeymap(this.engine.mode);
+      // deferKeymap() is true when the keymap must WAIT (its polarity note).
+      const defer = changed.has("keymap") && deferKeymap(this.engine.mode);
       if (defer) changed.delete("keymap");
       this.applyConfig(next, changed);
       if (defer) this.pendingKeymapReload = true;
-      this.showMessage(describeReload(changed, restartOnly));
+      // applyStyle named any rejected keys; keep them beside the reload line
+      // rather than overwriting them with it.
+      const line = describeReload(changed, restartOnly);
+      const rejected = changed.has("style") ? this.styleRejected : [];
+      this.showMessage(rejected.length ? `${line} · ${styleRejectedMessage(rejected.join(", "))}` : line);
+    }
+
+    // r1: a keymap saved while typing waits for NORMAL, then applies —
+    // deferred, never dropped.
+    flushPendingKeymap() {
+      if (!this.pendingKeymapReload || this.engine.mode !== MODE.NORMAL) return;
+      this.pendingKeymapReload = false;
+      this.applyConfig(this.config, new Set(["keymap"]));
+      this.showMessage(describeReload(new Set(["keymap"]), new Set()));
     }
 
     // --- browser plumbing ---------------------------------------------------
@@ -2235,9 +2265,10 @@
       if (!state) return;
       const doc = this.win.document;
       const max = this.opt("palette_max_items");
-      const { rows, moreCount } = Panel.truncateRows
-        ? Panel.truncateRows(state.rows, max)
-        : { rows: state.rows.slice(0, max), moreCount: Math.max(0, state.rows.length - max) };
+      // `visible` is the filtered view (Panel.filter); `rows` is every row.
+      const pool = state.visible ?? state.rows;
+      const rows = pool.slice(0, max);
+      const moreCount = Math.max(0, pool.length - max);
 
       this.panelRowsEl.textContent = "";
       const selected = Panel.selectedRow(state);
@@ -2363,14 +2394,36 @@
     setTabMeta(key, change) {
       const model = AetherWorkspaces.model;
       if (!model || key === null) return;
-      const table = this.tabMeta();
-      table[key] = TabSource.applyMeta(table[key], change, this.workspaceKeys());
+      model.tabMeta = TabSource.applyMeta(this.tabMeta(), { ...change, id: key }, this.tabWorkspaces());
       AetherWorkspaces.persist();
     }
 
-    workspaceKeys() {
-      const model = AetherWorkspaces.model;
-      return model?.workspaces ? Object.keys(model.workspaces) : [];
+    // Live tab id → workspace name: what applyMeta refreshes entries from.
+    tabWorkspaces() {
+      return new Map(this.liveTabs().filter(t => t.id !== null).map(t => [t.id, t.workspace]));
+    }
+
+    // `<id>` argument of the tab_* registry commands → a live tab key, or null.
+    tabKeyArg(ctx) {
+      const id = ctx?.args?.[0];
+      if (id !== undefined && this.tabFor(String(id))) return String(id);
+      this.showMessage(`no tab: ${id ?? ""}`);
+      return null;
+    }
+
+    // r4: containers are fixed per tab, so a move is reopen-there +
+    // close-here — and that close is a move, not a death: no graveyard.
+    moveTabToWorkspace(key, name) {
+      const tab = key === null ? null : this.tabFor(key);
+      if (!tab || !name) return;
+      const url = tab.linkedBrowser?.currentURI?.spec;
+      const meta = this.tabMeta()[key];
+      this.switchWorkspace(name);
+      this.newTab();
+      if (meta) this.setTabMeta(this.currentTabKey(), meta);
+      if (isBuriable(url)) this.navigate(url);
+      tab._aetherMoving = true;
+      this.win.gBrowser.removeTab(tab);
     }
 
     runTabAction(action, rows) {
@@ -2401,6 +2454,14 @@
           case "tab_pin":
             this.setTabMeta(row.key, { pin: row.pin === null ? this.nextPin() : null });
             break;
+          case "tab_rename":
+          case "tab_tag":
+          case "tab_move_ws":
+            // Typed text: hand off to the palette, prefilled with the registry
+            // command and this row's id — the panel stays a view over the
+            // registry, not a second implementation of it.
+            this.win.setTimeout(() => this.openPalette(`${command} ${row.key} `), 0);
+            return false;
           default:
             this.showMessage(`no glue for: ${action}`);
             break;
@@ -2433,18 +2494,23 @@
         this.showMessage(noMarkMessage(char));
         return;
       }
-      const tab = hit.key !== undefined ? this.tabFor(String(hit.key)) : null;
+      const tab = hit.kind === "tab" ? this.tabFor(String(hit.id)) : null;
       if (tab) {
         this.win.gBrowser.selectedTab = tab;
         return;
       }
-      if (hit.record) this.exhumeRecord(hit.record);
+      if (hit.kind === "graveyard" && hit.record) this.exhumeRecord(hit.record);
       else this.showMessage(noMarkMessage(char));
     }
 
+    // The one resurrection path (:graveyard and 'mark): exhume, reopen in a
+    // new tab, and hand the record's r4 metadata back to the new tab.
     exhumeRecord(record) {
-      const revived = AetherGraveyard.exhume(record.id);
-      if (revived?.url) this.newTab(revived.url);
+      const revived = AetherGraveyard.exhume(record.id) ?? record;
+      if (!revived?.url) return;
+      this.newTab();
+      if (revived.meta) this.setTabMeta(this.currentTabKey(), revived.meta);
+      this.navigate(revived.url);
     }
 
     gotoPin(n) {
@@ -2501,14 +2567,14 @@
           continue;
         }
         if (action === "reset") {
-          this.writeLocalConfig(t => Settings.resetOverride(t, row.path));
+          this.writeLocalConfig(t => Settings.resetOverride(t, row.path).table);
           this.showMessage(settingResetMessage(row.path));
           continue;
         }
         // edit: booleans toggle and enums cycle in place; everything else
         // needs a typed value, which is a prompt this pass does not build.
         let next;
-        if (row.type === "boolean") next = !row.value;
+        if (row.type === "bool") next = !row.value;
         else if (row.enum) next = row.enum[(row.enum.indexOf(row.value) + 1) % row.enum.length];
         else {
           this.showMessage(`edit ${row.path} in the dotfile`);
@@ -2525,8 +2591,15 @@
       return true;
     }
 
+    // Seeded from the local layer the config actually loaded, so an edit
+    // after a relaunch (or a hand edit) layers onto the file instead of
+    // replacing it with a one-key file.
     localConfigTable() {
-      return this.localConfig ?? (this.localConfig = {});
+      if (!this.localConfig) {
+        const { local } = Settings.layersFromConfig(this.config, this.settingsPrefs());
+        this.localConfig = JSON.parse(JSON.stringify(local ?? {}));
+      }
+      return this.localConfig;
     }
 
     // The panel owns aether.local.toml and nothing else — the hand-written
@@ -2540,7 +2613,7 @@
         "aether",
         "aether.local.toml"
       );
-      const text = `${LOCAL_CONFIG_HEADER}\n${Settings.emitLocalToml(table)}`;
+      const text = Settings.emitLocalToml(table); // carries its own header
       IOUtils.writeUTF8(path, text, { tmpPath: `${path}.tmp` })
         .then(() => this.reloadConfig())
         .catch(e => console.error("[aether] could not write the local config:", e));
