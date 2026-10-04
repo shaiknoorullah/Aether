@@ -152,7 +152,7 @@ install_autoconfig() {
   $1 mkdir -p "${FIREFOX_DIR}/defaults/pref"
   if [[ -n "$existing_cfg" ]]; then
     if ! grep -q "AETHER-LOADER" "$existing_cfg"; then
-      cat "${OVERLAY_DIR}/loader/aether-loader.cfg" | $1 tee -a "$existing_cfg" >/dev/null
+      $1 tee -a "$existing_cfg" < "${OVERLAY_DIR}/loader/aether-loader.cfg" >/dev/null
     fi
   else
     { echo "// aether"; cat "${OVERLAY_DIR}/loader/aether-loader.cfg"; } | $1 tee "${FIREFOX_DIR}/config.js" >/dev/null
