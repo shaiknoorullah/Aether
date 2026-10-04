@@ -134,6 +134,10 @@ else
 fi
 for s in "${scenarios[@]}"; do
   echo "[scenario] $s"
+  # Every scenario starts in NORMAL. A previous one can end with focus in a
+  # text field (Firefox refocuses it after a reserved Ctrl+W), and the next
+  # scenario's first `o` + url would then be typed into the page.
+  xdotool key --clearmodifiers Escape; sleep 0.5
   # shellcheck source=/dev/null
   source "$s"
   browser_alive || { echo "browser died during $s — see $SHOTS/browser.log" >&2; exit 2; }

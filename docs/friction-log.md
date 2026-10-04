@@ -92,6 +92,14 @@ Same question, same rule, same format. Differences from run 1:
   visible failure instead of an absence.
 - Firefox 150 is itself the first monthly drill: the overlay loads and the
   pre-existing f1 scenario passes on it with zero changes (2026-10-04).
+- **Drill 2026-10-04, Firefox 150 → 157** (same day — `pacman -Syu`): one
+  break. 157 enforces `dom.jsipc.check_safeForUntrustedWebProcess`, which
+  refused the content actor in every web/file process — hints, scroll,
+  insert detection, boosts, `:zap`, resurrection all dead while the chrome
+  side looked fine. Fix: one audited declaration on the actor
+  (`safeForUntrustedWebProcess: true`). Cost ≈ 1 h, most of it finding the
+  gate in upstream source. Full suite green on 157 after. Lesson kept: the
+  chrome side is not evidence the content side works — run hints first.
 
 ### Week 1
 
