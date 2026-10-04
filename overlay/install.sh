@@ -8,6 +8,9 @@
 #   ./install.sh --launcher-only      just the app-launcher entry + icons
 #   ./install.sh --uninstall-launcher remove the launcher entry + icons only —
 #                                     never the profile, never the dotfiles
+#
+# Run it as YOUR user, never with sudo: it asks for sudo itself for the one
+# system step (autoconfig into the Firefox directory).
 set -euo pipefail
 
 OVERLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,6 +23,13 @@ ICON_SIZES=(16 24 32 48 64 128 256 512)
 
 log() { printf '\033[1;35m[aether]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[aether]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Per-user by design: the profile, the dotfile and the launcher entry are
+# yours. Under sudo HOME is /root, so all three land in root's home and the
+# browser you launch finds none of them (2026-10-04, the first real install).
+if (( EUID == 0 )); then
+  die "run as your user, not with sudo — the one step that needs root asks for it"
+fi
 
 # --- launcher: desktop entry + hicolor icons, per-user, no sudo --------------
 # Launchers find apps through $XDG_DATA_HOME/applications and icons through the
@@ -79,6 +89,7 @@ uninstall_launcher() {
 
 case "${1:-}" in
   "") ;;
+  -h|--help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; exit 0 ;;
   --launcher-only) install_launcher; exit 0 ;;
   --uninstall-launcher) uninstall_launcher; exit 0 ;;
   *) die "unknown option: $1 (try --launcher-only or --uninstall-launcher)" ;;
