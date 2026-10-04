@@ -26,6 +26,7 @@ h_note "121: panel must be gone once the sequence times out (visual)"
 
 # state 2: sequence completes, panel gone, page at top
 keys G
+h_check "r3 setup: G reached the bottom (a later at-top check must be able to fail)" wait_title "scroll at-bottom" 6
 keys g g
 h_check "r3.2 gg completes the sequence (top)" wait_title "scroll at-top" 6
 shot 122-h3-gg-top-no-panel
@@ -42,6 +43,7 @@ shot 124-h3-root-dismissed-by-j
 
 # state 4: timing unaffected — the panel must be UP when the completing g lands
 keys G
+h_check "r3 setup: G reached the bottom (a later at-top check must be able to fail)" wait_title "scroll at-bottom" 6
 xdotool key --clearmodifiers g
 sleep 0.8
 shot 125-h3-panel-up-before-completion
@@ -53,6 +55,7 @@ shot 125b-h3-completed-top-no-panel
 h3_config -1
 h_cmd config_reload
 keys G
+h_check "r3 setup: G reached the bottom (a later at-top check must be able to fail)" wait_title "scroll at-bottom" 6
 xdotool key --clearmodifiers g
 sleep 1.2
 shot 126-h3-disabled-no-panel
