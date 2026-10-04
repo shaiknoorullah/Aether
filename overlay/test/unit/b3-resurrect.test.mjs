@@ -217,7 +217,8 @@ test("resurrect: serialize emits schema 2 with contexts; round trip preserves su
   captureScroll(m, b.id, URL_B, 1200, 6_000);
 
   const parsed = JSON.parse(serialize(m));
-  assert.equal(parsed.schema, 2, "serialize now emits schema: 2");
+  // r4 bumped the file to schema 3 (tabMeta, additive); b3 only needs >= 2.
+  assert.ok(parsed.schema >= 2, "serialize emits schema >= 2");
   assert.ok(parsed.contexts && typeof parsed.contexts === "object", "contexts ride in the JSON");
 
   const revived = deserialize(serialize(m), "unused");

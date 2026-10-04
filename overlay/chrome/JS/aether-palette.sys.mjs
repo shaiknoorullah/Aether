@@ -202,11 +202,6 @@ export const REGISTRY = {
     risk: "read",
     agent: false,
   },
-  tabs_toggle: {
-    description: "toggle the vertical tab strip for this window",
-    risk: "read",
-    agent: false,
-  },
   theme_reload: {
     description: "re-read the palette files and recolour the chrome",
     risk: "mutate-local",

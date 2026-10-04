@@ -30,8 +30,7 @@ import { styleRejectedMessage } from "../../chrome/JS/aether-strings.sys.mjs";
 import {
   DEFAULTS_STYLE,
   VALIDATORS,
-  buildStyle,
-} from "../../chrome/JS/aether-style.sys.mjs";
+  buildStyle, emitStyleCss } from "../../chrome/JS/aether-style.sys.mjs";
 
 // r1's and r5's modules are loaded INSIDE the tests that need them, not here.
 // Both are owned by other features and are being written in parallel with this
@@ -51,7 +50,7 @@ const CSS = readFileSync(USER_CHROME_CSS, "utf8");
 function one(re, label) {
   const m = re.exec(CSS);
   assert.ok(m, `userChrome.css: '${label}' extraction matched nothing — fixture has rotted`);
-  return m.slice(1).map(s => s.trim());
+  return m.slice(1).map(s => unwrapVar(s));
 }
 
 function all(re, label, min) {
@@ -82,6 +81,18 @@ const DECLS = [...CSS.matchAll(/(?<![\w-])(-{0,2}[a-z][a-z0-9-]*)\s*:\s*([^;{}]+
 // quoted string) would drop its declaration out of DECLS with no signal. So
 // every lookup cross-checks its count against a naive count of the bare
 // property token.
+// r2 landed: the stylesheet now reads `var(--aether-x, FALLBACK)`, and the
+// FALLBACK is the value that renders when no style layer is applied. That is
+// what must equal DEFAULTS_STYLE — the guarantee is unchanged ("the default
+// render is what shipped"), only the extraction moved. A raw constant with no
+// var() is still compared as-is, so a hardcoded value that escapes the layer
+// still fails this sweep, which is the point of it.
+function unwrapVar(value) {
+  return String(value)
+    .replace(/var\(\s*--aether-[a-z0-9_-]+\s*,\s*([^()]*?)\s*\)/gi, "$1")
+    .trim();
+}
+
 function declsOf(match, label) {
   const pick = typeof match === "function" ? match : p => p === match;
   const found = DECLS.filter(([p]) => !p.startsWith("--") && pick(p));
@@ -347,7 +358,7 @@ test("config: an integer opacity written in TOML survives the parser and validat
 // ------------------------------- DEFAULTS_STYLE ↔ what userChrome.css hardcodes
 
 test("css: radius — every border-radius in the stylesheet is DEFAULTS_STYLE.radius", () => {
-  const radii = declsOf(p => /(^|-)radius$/.test(p), "border-radius").map(([, v]) => v);
+  const radii = declsOf(p => /(^|-)radius$/.test(p), "border-radius").map(([, v]) => unwrapVar(v));
   assert.deepEqual(radii, ["2px", "2px"], "the radius inventory, so a new corner cannot slip in");
   for (const r of radii) assert.equal(r, DEFAULTS_STYLE.radius);
 });
@@ -369,8 +380,8 @@ test("css: gap — the statusbar and palette-candidate gaps are DEFAULTS_STYLE.g
   // a second, smaller gap constant that the single --aether-gap var does not
   // model. See the r2 findings: either it becomes --aether-gap too (visible
   // change, not pixel-identical) or it stays a stylesheet constant on purpose.
-  const inventory = declsOf(p => /(^|-)gap$/.test(p), "gap").map(([, v]) => v);
-  assert.deepEqual(inventory, ["1em", "1em", "4px"]);
+  const inventory = declsOf(p => /(^|-)gap$/.test(p), "gap").map(([, v]) => unwrapVar(v));
+  assert.deepEqual(inventory, ["1em", "1em", "4px", "1em"]);
 });
 
 test("css: pad_y/pad_x — the statusbar padding is DEFAULTS_STYLE's pad pair", () => {
@@ -378,7 +389,7 @@ test("css: pad_y/pad_x — the statusbar padding is DEFAULTS_STYLE's pad pair", 
     /#aether-statusbar\s*\{[^}]*?\bpadding:\s*([^;]+);/s,
     "#aether-statusbar padding",
   );
-  assert.deepEqual(padding.split(/\s+/), [DEFAULTS_STYLE.pad_y, DEFAULTS_STYLE.pad_x]);
+  assert.deepEqual(unwrapVar(padding).split(/\s+/), [DEFAULTS_STYLE.pad_y, DEFAULTS_STYLE.pad_x]);
 });
 
 test("css: row_pad_y/row_pad_x — every palette row padding is DEFAULTS_STYLE's row pad pair", () => {
@@ -388,19 +399,19 @@ test("css: row_pad_y/row_pad_x — every palette row padding is DEFAULTS_STYLE's
     2,
   ).map(m => m[0]);
   for (const p of paddings) {
-    assert.deepEqual(p.split(/\s+/), [DEFAULTS_STYLE.row_pad_y, DEFAULTS_STYLE.row_pad_x]);
+    assert.deepEqual(unwrapVar(p).split(/\s+/), [DEFAULTS_STYLE.row_pad_y, DEFAULTS_STYLE.row_pad_x]);
   }
 
   // Inventory again: the two unmodelled paddings are the mode badge (1px 8px)
   // and the selected candidate (0 4px). Adding a third must break this.
-  const inventory = declsOf(p => /(^|-)padding(-[a-z]+)?$/.test(p), "padding").map(([, v]) => v);
-  assert.deepEqual(inventory, ["0 8px", "1px 8px", "2px 8px", "0 4px", "2px 8px"]);
+  const inventory = declsOf(p => /(^|-)padding(-[a-z]+)?$/.test(p), "padding").map(([, v]) => unwrapVar(v));
+  assert.deepEqual(inventory, ["0 8px", "1px 8px", "2px 8px", "0 4px", "2px 8px", "2px 8px", "2px 8px", "2px 8px", "2px 0", "0 8px"]);
 });
 
 test("css: border — every border weight in the stylesheet is DEFAULTS_STYLE.border", () => {
   const borders = declsOf(p => /^border(-(top|right|bottom|left|width))?$/.test(p), "border");
   assert.deepEqual(
-    borders.map(([p, v]) => `${p}: ${v.split(/\s+/)[0]}`),
+    borders.map(([p, v]) => `${p}: ${unwrapVar(v).split(/\s+/)[0]}`),
     [
       // three `border: none` resets on chrome Aether hides — they carry no
       // weight constant, so [style] does not model them
@@ -409,11 +420,18 @@ test("css: border — every border weight in the stylesheet is DEFAULTS_STYLE.bo
       "border-top: 1px",
       "border-top: 1px",
       "border: none",
+      // r4/r3 surfaces, added on purpose: the panel's top edge, the marked-row indicator, the panel input row's edge, its own `border: none` reset,
+      // and which-key's top edge.
+      "border-top: 1px",
+      "border-left: 1px",
+      "border-top: 1px",
+      "border: none",
+      "border-top: 1px",
     ],
     "the border inventory — a new edge must be added here on purpose",
   );
   for (const [, value] of borders) {
-    const width = value.split(/\s+/)[0];
+    const width = unwrapVar(value).split(/\s+/)[0];
     if (width === "none") continue;
     assert.equal(width, DEFAULTS_STYLE.border);
   }
@@ -427,7 +445,7 @@ test("css: font/font_size — every font declaration is accounted for, shorthand
   // only checked for TOO FEW matches. The inventory is exact now: every `font`
   // declaration is either the chrome shorthand this feature models, or a listed
   // exception with a reason.
-  const fonts = declsOf(p => p === "font", "font").map(([, v]) => v);
+  const fonts = declsOf(p => p === "font", "font").map(([, v]) => unwrapVar(v));
   const EXCEPTIONS = new Set([
     // the palette's <input>, which inherits the strip's font instead of
     // restating it — modelled by nothing in [style], and correct as is
@@ -436,7 +454,7 @@ test("css: font/font_size — every font declaration is accounted for, shorthand
   const shorthands = fonts.filter(v => !EXCEPTIONS.has(v));
   assert.deepEqual(
     fonts,
-    ["12px monospace", "12px monospace", "inherit"],
+    ["12px monospace", "12px monospace", "inherit", "12px monospace", "inherit", "12px monospace"],
     "a new font declaration must be added to this inventory on purpose",
   );
   assert.ok(shorthands.length >= 2, "the chrome must still carry its own font shorthand");
@@ -482,42 +500,53 @@ test("css: the keys the stylesheet cannot witness yet are exactly the seven we k
   );
 });
 
-test("css: the stylesheet does not yet consume any --aether-* style var (r2 stylesheet pass pending)", () => {
-  // This test is the tripwire for the half of r2 that could not land: the
-  // stylesheet edit is Foundation-owned. It documents today's reality, and it
-  // FAILS the moment the var layer is actually wired up — at which point the
-  // extraction tests above must be rewritten to read the var fallbacks and this
-  // test deleted. Failing then is the point.
-  const styleVars = CSS.match(
-    /var\(--aether-(?:radius|gap|pad-[xy]|row-pad-[xy]|border|panel-width|panel-height|opacity|blur|font|font-size|motion-ms|motion-ease)\b/g,
-  );
-  assert.equal(
-    styleVars,
-    null,
-    "userChrome.css now consumes style vars — rewrite the css: extraction tests to read var() fallbacks",
-  );
+const EMITTED = emitStyleCss(DEFAULTS_STYLE);
+
+test("css: the stylesheet consumes the style vars, with today's value as the fallback", () => {
+  // Was a tripwire asserting the var layer had NOT landed. It has, so this is
+  // now the real assertion it demanded: every var() carries the value that
+  // shipped as its fallback, which is what makes the default render identical
+  // to v1.1.0 whether or not a [style] block exists.
+  const uses = CSS.match(/var\(--aether-[a-z0-9_-]+\s*,/g) ?? [];
+  assert.ok(uses.length > 0, "userChrome.css must consume the style layer");
+  for (const [, name, fallback] of CSS.matchAll(
+    /var\(\s*--aether-([a-z0-9_]+)\s*,\s*([^()]*?)\s*\)/gi,
+  )) {
+    const key = name.replace(/-/g, "_");
+    if (!(key in DEFAULTS_STYLE)) continue;
+    // emitStyleCss adds the unit (motion_ms 120 -> 120ms, opacity 100 -> 100%),
+    // so the fallback must equal the EMITTED value, not the raw default.
+    const emitted = new RegExp(`--aether-${name}:\\s*([^;]+);`).exec(EMITTED)?.[1]?.trim();
+    assert.equal(
+      fallback,
+      emitted ?? String(DEFAULTS_STYLE[key]),
+      `--aether-${name}'s fallback must be the emitted DEFAULTS_STYLE value, or the unstyled render drifts`,
+    );
+  }
+});
+
+test("css: reduced motion is overridden in CSS, not in JS", () => {
+  // applyStyle() regenerates the whole var element on every reload, so a JS
+  // matchMedia override would be undone by the next config save. A static rule
+  // survives regeneration — that is why this assertion is on the stylesheet.
+  assert.ok(/prefers-reduced-motion/.test(CSS), "the reduced-motion override must exist");
   assert.ok(
-    !/prefers-reduced-motion/.test(CSS),
-    "the static reduced-motion override has landed — add its assertion and drop this one",
+    /prefers-reduced-motion[^}]*--aether-motion-ms:\s*0ms\s*!important/s.test(CSS),
+    "reduced motion must force the duration var to 0ms with !important",
   );
 });
 
-test("style: the glue does not call the style module yet either — r2 is half-landed, on purpose", () => {
-  // The stylesheet tripwire above only watches CSS. Without this one, a green
-  // r2 suite cannot tell "wired up and working" from "a pure module nothing
-  // imports", which is exactly the state r2 is in: aether.uc.js and
-  // userChrome.css are both Foundation-owned this pass, so the module's
-  // consumers do not exist. 54 green tests are a statement about the module,
-  // not about the feature. When applyStyle() lands, this test must be deleted
-  // in the same change — its failure is the signal that the other half arrived.
+test("style: the glue wires the module — applyStyle owns a second style element", () => {
+  // Was a tripwire asserting the glue did NOT import the module; it does now,
+  // so this asserts the wiring the tripwire asked for. The theme and style
+  // layers must stay in SEPARATE elements or a theme reload would wipe the
+  // style layer and vice versa.
   const GLUE = readFileSync(join(HERE, "..", "..", "chrome", "JS", "aether.uc.js"), "utf8");
-  const hooks = ["aether-style", "emitStyleCss", "buildStyle", "applyStyle", "DEFAULTS_STYLE"];
-  for (const hook of hooks) {
-    assert.ok(
-      !GLUE.includes(hook),
-      `aether.uc.js now references ${hook} — r2's glue has landed, so delete this tripwire and assert the real wiring instead`,
-    );
+  for (const hook of ["aether-style.sys.mjs", "emitStyleCss", "buildStyle", "applyStyle"]) {
+    assert.ok(GLUE.includes(hook), `aether.uc.js must reference ${hook}`);
   }
+  assert.ok(GLUE.includes('"aether-style"'), "applyStyle must own an #aether-style element");
+  assert.ok(GLUE.includes('"aether-theme"'), "the f3 theme element must still exist separately");
 });
 
 test("css: nothing blurs today — so blur cannot be wired as an unconditional backdrop-filter", () => {

@@ -142,7 +142,14 @@ test("palette: completion list is capped by palette_max_items", () => {
 
 test("palette: every command in the default keymap exists in the registry and completes to itself", () => {
   const { normal, reserved } = AetherConfig.DEFAULTS.keymap;
-  const bound = new Set([...Object.values(normal), ...Object.values(reserved)]);
+  // Foundation's binding grammar carries args and an <char> suffix
+  // (`mark_set<char>`, `tab_pin_goto 1`), so the command NAME is the head of
+  // the value — which is exactly what parseBinding dispatches on.
+  const bound = new Set(
+    [...Object.values(normal), ...Object.values(reserved)].map(v =>
+      String(v).replace(/<char>$/, "").split(" ")[0],
+    ),
+  );
   for (const name of bound) {
     assert.ok(name in REGISTRY, `keymap command '${name}' missing from registry`);
   }

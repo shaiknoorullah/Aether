@@ -6,7 +6,7 @@ This is *not* a successor to `docs/feature-matrix.md` (v1) or `docs/research-v2/
 
 **Ranking rule**: a feature earns its place by daily use and by fitting the maintenance budget. Anything without a spec is scope, not a commitment.
 
-Last updated 2026-08-14.
+Last updated 2026-10-04.
 
 ---
 
@@ -16,7 +16,7 @@ Last updated 2026-08-14.
 |---|---|---|
 | v1.0.0 | Spike + the seven floor items | **Complete** — 2026-07-18 |
 | v1.1.0 | Site boosts, AI CSS boosts, context resurrection | **Complete** — 2026-08-12 |
-| v1.2.0 | The rice pass | Specs written, not started |
+| v1.2.0 | The rice pass | **Complete** — built 2026-08-14, visually verified + fixed 2026-10-04 |
 | v1.3.0 | The extension pass | Specs written (design-reviewed), not started |
 | v1.4.0 | Panel sources | Specs written, not started |
 | v2.0.0 | `aetherd` and integrations | Specs written, not started |
@@ -57,7 +57,33 @@ Phase 2 (the 30-day daily-drive gate) runs underneath all of it, from 2026-08-14
 | `r4` | Panel primitive + tab panel | Friction-log #3, day 1: a strip is not how I find a tab. **Cuts f4's vertical strip** |
 | `r5` | Settings panel + DoH | Config discoverable without reading a spec; layered file so the dotfile is never rewritten |
 
-Riding along: extract from `aether.uc.js` (2,009 lines) as each area is touched. Not a separate milestone.
+**Built 2026-08-14.** Pure layer by 27 agents (five TDD teams of five, one foundation engineer, one integrator); glue wired serially afterwards. 322 → 787 tests, 786 pass, 1 todo. The vertical strip is cut: `T` opens the tab panel, `tabs_toggle` is deleted from the registry, and f4's `sidebar.revamp`/`verticalTabs` prefs are reverted in the same change so the native strip cannot render in its place.
+
+**The ride-along refactor did not happen.** `aether.uc.js` went from 2,009 to 2,688 lines — it grew by a third instead of shrinking. This is exactly what the budget review predicted about a refactor promised as a side effect of feature work, and the CI line-count ceiling it recommended is still not in place. Either that ceiling lands before v1.3.0 or the promise should be dropped from the plan rather than repeated.
+
+**Visually verified 2026-10-04 — and it was not complete until then.** The 08-14 build was checked by one headless launch; no r1–r5 visual scenario existed. Writing them (`overlay/test/visual/scenarios.d/h1–h5`, 37 spec states, run on stock Firefox 150) found **13 defects, every one in the glue** — the pure modules were right and their 787 tests green throughout, which is the design review's recurring pattern exactly: tests that assert the guarantee, not the mechanism.
+
+| # | Spec | Defect (glue ↔ pure-contract mismatch) | Effect |
+|---|---|---|---|
+| 1 | r1 | `!deferKeymap(mode)` — polarity inverted; `pendingKeymapReload` set, never read | live keymap reload never worked; in INSERT it rebuilt mid-typing instead of waiting |
+| 2 | r2 | reload line overwrote the rejected-key line | a bad `[style]` value was never named |
+| 3 | r2 | surfaces hide via `display:none`; no `@starting-style` | motion never played — r2's motion was inert |
+| 4 | r3 | pending-timeout path never hid which-key | panel stayed up after the sequence died |
+| 5 | r4 | `renderPanel` drew `state.rows`, not the filtered `state.visible` | typing never narrowed any panel |
+| 6 | r4 | `applyMeta` called with one entry and no `change.id` | every rename/tag/pin/mark was a silent no-op |
+| 7 | r4 | `serialize` still schema 2 — `tabMeta` never persisted | (masked by 6) metadata could not survive relaunch |
+| 8 | r4 | `buryTab` never passed `meta` | the graveyard handoff did not exist |
+| 9 | r4 | `markResolve` returns `{kind, id}`; glue read `hit.key`; exhume called `newTab(url)` (no arg) | `'a` never jumped; a closed mark reopened a blank tab |
+| 10 | r4 | `await_arg` decision unhandled; keymap `args` never reached `ctx.args` | `m`/`'` leaked to the page; pins `1`–`9` did nothing |
+| 11 | r4 | panel rename/tag/move-to-workspace: "no glue"; `tab_move_ws` switched workspace | three panel actions dead; one command lied |
+| 12 | r5 | `row.type === "boolean"` vs schema `"bool"`; reset stored `{ok, table}` | boolean edits refused; reset wrote `ok = true` |
+| 13 | r5 | local table never seeded from disk; header written twice | an edit after relaunch deleted every earlier override |
+
+Fixes: +73 glue lines (`aether.uc.js` 2,688 → 2,761), schema 3 in `aether-workspaces` (+7 unit tests, 794 total, 793 pass, 1 todo), one `@starting-style` block. Panel text actions hand off to the palette prefilled with `tab_<cmd> <id> ` — the panel stays a view over the registry. Move-to-workspace is reopen-there + close-here (containers are per-tab), and the close skips the graveyard.
+
+Post-fix: every mechanical h-check passes (h1 7/7, h3 4/4, h4 10/10, h5 6/6); visual states reviewed shot by shot; r2 state 1 compared against a v1.1.0 render on the same Firefox — badge, workspace and bar geometry pixel-identical (only URL text and clock differ).
+
+Honest edges found, not fixed: the `?` root list sorts pins `1`–`9` first, burying `a`/`j`/`k` under `+N more`; a mark on a panel row is a 1px border (hard to see); a keymap edit deferred mid-insert reports `nothing changed` until it lands; `:graveyard` rows don't show a carried rename (resurrection restores it). r1 state 6 (mid-write) is safe for writes cut mid-literal; a write paused >2 s at a line boundary would still be read — stat-twice narrows the window, it cannot close it.
 
 ## v1.3.0 — The Extension Pass
 

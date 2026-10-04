@@ -273,8 +273,8 @@ test("parse: the FIRST offending line wins, so the reported line is the one to o
 const TRUNCATION_BLOCKED =
   "blocked: needs the unterminated-literal guard in aether-config.sys.mjs (Foundation-owned)";
 
-test("BLOCKED(r1): parse rejects a value line cut mid-literal — the real mid-write shape",
-  { todo: TRUNCATION_BLOCKED }, () => {
+test("r1: parse rejects a value line cut mid-literal — the real mid-write shape",
+  () => {
     const cases = [
       // a writer that got as far as the opening quote of a string value
       ['[options]\nhint_chars = "arst', 2],
@@ -290,8 +290,8 @@ test("BLOCKED(r1): parse rejects a value line cut mid-literal — the real mid-w
     }
   });
 
-test("BLOCKED(r1): a cut string value never becomes a corrupted string value",
-  { todo: TRUNCATION_BLOCKED }, () => {
+test("r1: a cut string value never becomes a corrupted string value",
+  () => {
     // Today `hint_chars = "arst` yields the STRING `"arst` — leading quote and
     // all — and `source = "` yields the empty string, both with ok: true. Half
     // the file then merges over DEFAULTS and the rest of the config reverts.
@@ -353,8 +353,8 @@ const REJECT_BLOCKED =
   "blocked: load() must re-stamp `sources` on the rejected path in aether-config.sys.mjs " +
   "— `return withSources(lastConfig ?? { ...DEFAULTS }, sources)`";
 
-test("BLOCKED(r1): a rejected reload carries the failing line, so the statusbar can name it",
-  { todo: REJECT_BLOCKED }, async () => {
+test("r1: a rejected reload carries the failing line, so the statusbar can name it",
+  async () => {
     FS.clear();
     FS.set(pathFor("aether.toml"), '[options]\nscroll_step = 200\n\n[keymap.normal]\nj = "half_down"\n');
     const good = await AetherConfig.load();
@@ -386,8 +386,8 @@ test("BLOCKED(r1): a rejected reload carries the failing line, so the statusbar 
 const WIRE_BLOCKED =
   "blocked: aether.uc.js has no `config_reload` in this.commands (glue, out of scope this pass)";
 
-test("BLOCKED(r1): config_reload is implemented, not just registered and described",
-  { todo: WIRE_BLOCKED }, () => {
+test("r1: config_reload is implemented, not just registered and described",
+  () => {
     // Every other palette assertion in this file passes against a registry
     // entry with no implementation behind it: run() looks the name up in
     // aether.uc.js's `this.commands`, finds nothing, console.warns and returns.

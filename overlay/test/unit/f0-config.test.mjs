@@ -362,9 +362,17 @@ test("config: [privacy] doh defaults to fallback with a resolver url (r5)", () =
   assert.deepEqual(EXAMPLE.privacy, AetherConfig.DEFAULTS.privacy);
 });
 
-test("config: the shipped keymap is untouched by the v1.2.0 additions", () => {
+test("config: v1.2.0 rebinds only what its specs cut, and never 'r'", () => {
   const { normal } = AetherConfig.DEFAULTS.keymap;
+  // The collision this guard exists for: config reload must never take the key
+  // page reload already owns.
   assert.equal(normal.r, "reload", "'r' is still page reload, never config reload");
-  assert.equal(normal.T, "tabs_toggle");
   assert.equal(normal[":"], "palette");
+  // r4 rebinds T deliberately — the vertical strip it toggled is deleted, and
+  // f4's sidebar prefs are reverted in the same change so the native strip
+  // cannot render in its place.
+  assert.equal(normal.T, "tabs");
+  assert.equal(normal.m, "mark_set<char>");
+  assert.equal(normal["1"], "tab_pin_goto 1");
+  assert.equal(normal["?"], "which_key");
 });

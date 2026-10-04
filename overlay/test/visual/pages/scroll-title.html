@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- Scroll position, observable from outside the browser: the window title
+     reads "scroll at-top" / "scroll middle" / "scroll at-bottom", so keymap and
+     which-key scenarios can ASSERT a motion happened (wait_title) instead of
+     leaving it to a screenshot. Also carries a text field (insert mode) and
+     links (hints) so it can stand in for the playground. -->
+<title>scroll at-top</title>
+<style>body { font: 16px sans-serif; margin: 2em; } .spacer { height: 4000px; }</style>
+<h1>Scroll title fixture</h1>
+<p><a href="#one">link one</a> <a href="#two">link two</a></p>
+<p><input id="field" placeholder="type here (insert mode)"></p>
+<div class="spacer"></div>
+<h1 id="bottom">Bottom of the page</h1>
+<script>
+  const where = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if (window.scrollY <= 2) return "at-top";
+    if (window.scrollY >= max - 2) return "at-bottom";
+    return "middle";
+  };
+  const update = () => { document.title = "scroll " + where(); };
+  addEventListener("scroll", update, { passive: true });
+  addEventListener("load", update);
+</script>

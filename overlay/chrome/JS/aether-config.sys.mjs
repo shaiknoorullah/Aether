@@ -90,7 +90,18 @@ const DEFAULTS = {
       x: "tab_close",
       J: "tab_next",
       K: "tab_prev",
-      T: "tabs_toggle",
+      T: "tabs",
+      m: "mark_set<char>",
+      "'": "mark_jump<char>",
+      "1": "tab_pin_goto 1",
+      "2": "tab_pin_goto 2",
+      "3": "tab_pin_goto 3",
+      "4": "tab_pin_goto 4",
+      "5": "tab_pin_goto 5",
+      "6": "tab_pin_goto 6",
+      "7": "tab_pin_goto 7",
+      "8": "tab_pin_goto 8",
+      "9": "tab_pin_goto 9",
       r: "reload",
       f: "hints",
       i: "insert",
@@ -105,6 +116,21 @@ const DEFAULTS = {
     },
   },
 };
+
+// A value whose literal never closes — the shape a half-written file actually
+// has. Returning a corrupted value with ok:true is worse than rejecting: the
+// rest of the file then merges over DEFAULTS and unrelated settings revert.
+export function isTruncatedValue(raw) {
+  const v = String(raw).trim();
+  if (v === "") return true;
+  // A CLOSING delimiter must exist — not necessarily as the last character,
+  // since a trailing comment legally follows a complete value
+  // (`hint_chars = "ab#cd"  # note`). Requiring it to be last would reject
+  // every commented line in the shipped dotfile.
+  if (v.startsWith('"')) return v.indexOf('"', 1) === -1;
+  if (v.startsWith("[")) return !v.includes("]");
+  return false;
+}
 
 function parseValue(raw) {
   const v = raw.trim();
@@ -198,6 +224,15 @@ export function parseToml(text) {
       continue;
     }
     if (UNSAFE_KEYS.has(key)) continue;
+    // A value cut mid-literal is the real mid-write shape. Recording the line
+    // AND dropping the key is the point: `hint_chars = "arst` must not become
+    // the string `"arst`, because a corrupted value that parses "successfully"
+    // lets the rest of the file merge over DEFAULTS and silently revert
+    // settings the user never touched.
+    if (isTruncatedValue(raw)) {
+      errorLine ??= lineNumber;
+      continue;
+    }
     section[key] = parseValue(raw);
   }
   return withParseResult(root, errorLine);
@@ -267,7 +302,7 @@ export const AetherConfig = {
       }
       if (sources.some(s => !s.ok)) {
         // All-or-nothing: keep what is live, and let the caller name the line.
-        return lastConfig ?? withSources({ ...DEFAULTS }, sources);
+        return withSources(lastConfig ?? { ...DEFAULTS }, sources);
       }
       let merged = DEFAULTS;
       for (const source of sources) {
@@ -278,7 +313,7 @@ export const AetherConfig = {
       return lastConfig;
     } catch (e) {
       console.error("[aether] could not load config, using the live one:", e);
-      return lastConfig ?? withSources({ ...DEFAULTS }, sources);
+      return withSources(lastConfig ?? { ...DEFAULTS }, sources);
     }
   },
   // The config load() resolved last, or null before the first load.

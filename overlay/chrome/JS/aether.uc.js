@@ -20,7 +20,7 @@
   const { createEngine } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-keys.sys.mjs"
   );
-  const { REGISTRY, parse, complete, cycle, unknownMessage } =
+  const { REGISTRY, parse, complete, cycle, unknownMessage, describeCommand } =
     ChromeUtils.importESModule(
       "chrome://userscripts/content/aether-palette.sys.mjs"
     );
@@ -30,6 +30,25 @@
     );
   const { resolvePalette, emitCss, expandPath } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-theme.sys.mjs"
+  );
+  // v1.2.0 pure layers.
+  const { buildStyle, emitStyleCss } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-style.sys.mjs"
+  );
+  const { diffConfig, describeReload, deferKeymap } = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-reload.sys.mjs"
+  );
+  const WhichKey = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-whichkey.sys.mjs"
+  );
+  const Panel = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-panel.sys.mjs"
+  );
+  const TabSource = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-tabsource.sys.mjs"
+  );
+  const Settings = ChromeUtils.importESModule(
+    "chrome://userscripts/content/aether-settings.sys.mjs"
   );
   const { isBuriable, formatRecord, NO_MATCHES_MESSAGE, EMPTY_MESSAGE } =
     ChromeUtils.importESModule(
@@ -88,6 +107,16 @@
     BOOSTS_OFF_MESSAGE,
     BOOSTS_STARTING_MESSAGE,
     BOOST_NO_CSS_MESSAGE,
+    styleRejectedMessage,
+    configUnchangedMessage,
+    moreRow,
+    PANEL_EMPTY_MESSAGE,
+    droppedMarksMessage,
+    markSetMessage,
+    noMarkMessage,
+    settingSavedMessage,
+    settingResetMessage,
+    settingRejectedMessage,
   } = ChromeUtils.importESModule(
     "chrome://userscripts/content/aether-strings.sys.mjs"
   );
@@ -137,7 +166,13 @@
   );
   ensureActors();
 
-  const MODE = { NORMAL: "normal", INSERT: "insert", HINT: "hint", PALETTE: "palette" };
+  const MODE = {
+    NORMAL: "normal",
+    INSERT: "insert",
+    HINT: "hint",
+    PALETTE: "palette",
+    PANEL: "panel",
+  };
 
   // f6 notification suppression: the pref we flip and the crash-safe marker
   // holding its pre-session value (restored on end, unload, and startup).
@@ -205,11 +240,6 @@
         tab_close: () => this.closeCurrentTab(),
         tab_next: () => this.win.gBrowser.tabContainer.advanceSelectedTab(1, true),
         tab_prev: () => this.win.gBrowser.tabContainer.advanceSelectedTab(-1, true),
-        // Per-window, never persisted — zero-chrome is the resting state.
-        tabs_toggle: () => {
-          this.quietSidebar();
-          this.win.document.documentElement.toggleAttribute("aether-tabs");
-        },
         graveyard: () => this.openPalette("graveyard "),
         // Multi-word names are legal (the palette provider passes the full
         // remainder), so both name-taking commands join their args.
@@ -238,10 +268,43 @@
         theme_reload: () =>
           this.applyTheme().then(sourceUsed => this.showMessage(`theme: ${sourceUsed}`)),
         hint_key: ctx => this.sendContent("Aether:HintKey", { key: ctx.decision.key }),
+
+        // r1
+        config_reload: () =>
+          this.reloadConfig().catch(e => console.error("[aether] could not reload config:", e)),
+        // r3
+        which_key: () => this.showWhichKey("", true),
+        // r4
+        tabs: () => this.openPanel(this.tabPanelSource()),
+        tab_select: ctx => this.selectTab(ctx?.args?.[0]),
+        tab_rename: ctx => this.setTabMeta(this.tabKeyArg(ctx), { rename: ctx?.args?.slice(1).join(" ") }),
+        tab_tag: ctx => this.setTabMeta(this.tabKeyArg(ctx), { tags: ctx?.args?.slice(1) }),
+        tab_pin: ctx =>
+          this.setTabMeta(ctx?.args?.length ? this.tabKeyArg(ctx) : this.currentTabKey(), { pin: this.nextPin() }),
+        tab_duplicate: () => this.win.gBrowser.duplicateTab(this.win.gBrowser.selectedTab),
+        tab_move_ws: ctx => this.moveTabToWorkspace(this.tabKeyArg(ctx), ctx?.args?.slice(1).join(" ")),
+        tab_pin_goto: ctx => this.gotoPin(ctx?.args?.[0]),
+        mark_set: ctx => this.setMark(ctx?.args?.[0]),
+        mark_jump: ctx => this.jumpMark(ctx?.args?.[0]),
+        // r5
+        settings: () => {
+          this.localConfig = null; // re-seed from what is on disk now
+          this.openPanel(this.settingsPanelSource());
+        },
+        describe: ctx => this.showMessage(describeCommand(ctx?.args?.[0] ?? "")),
+
+        // panel mode, dispatched by the key engine
+        panel_next: () => this.panelMove(1),
+        panel_prev: () => this.panelMove(-1),
+        panel_mark: () => this.panelMark(),
+        panel_cycle: () => this.panelCycle(),
+        panel_run: () => this.panelRun(),
       };
 
       this.buildStatusbar();
       this.buildPalette();
+      this.buildPanel();
+      this.buildWhichKey();
       this.buildAiSidebar();
       this.attach();
       this.initWorkspaces();
@@ -252,8 +315,12 @@
       // sidebar-main element upgrades lazily, so the root may not exist yet).
       this.quietSidebar();
       this.renderStatus();
-      // Startup goes through the same path as :theme_reload, just quietly.
+      // Startup goes through the same path as :config_reload, just quietly —
+      // one apply path, two triggers.
+      this.applyStyle();
+      this.applyDoh();
       this.applyTheme().catch(e => console.error("[aether] could not apply theme:", e));
+      this.startConfigWatcher();
     }
 
     get mode() {
@@ -360,14 +427,7 @@
       };
       win.gBrowser.addTabsProgressListener(this.wsProgressListener);
 
-      // One timer for every scheduled widget; none scheduled → zero timers.
-      this.scheduler = createScheduler(this.widgets, Date.now());
-      if (this.scheduler.periodMs !== null) {
-        this.tickTimer = win.setInterval(
-          () => this.renderWidgets(this.scheduler.tick(Date.now())),
-          this.scheduler.periodMs
-        );
-      }
+      this.startWidgetScheduler();
       this.renderWidgets();
 
       win.addEventListener("unload", () => this.destroy(), { once: true });
@@ -444,20 +504,51 @@
         case "action":
           this.consume(event);
           this.clearPendingTimer();
+          // The root list is dismissed by any key, and that key is then
+          // handled normally — it has no sequence to complete.
+          if (!this.whichKeyForced || decision.command !== "which_key") this.hideWhichKey();
           this.leaveTransientMode(modeBefore, decision.command);
-          this.run(decision.command, { decision, modeBefore });
+          // Keymap arguments ("tab_pin_goto 1", m<char>) ride on the decision;
+          // commands read ctx.args whether the palette or a key sent them.
+          this.run(decision.command, { decision, modeBefore, args: decision.args ?? [] });
+          break;
+        case "await_arg":
+          // m / ' wait for exactly one character; the key is ours, not the page's.
+          this.consume(event);
+          this.clearPendingTimer();
+          this.hideWhichKey();
           break;
         case "pending":
           this.consume(event);
           this.schedulePendingTimeout();
+          this.scheduleWhichKey();
           break;
         case "swallow":
           this.consume(event);
           this.clearPendingTimer();
+          this.hideWhichKey();
           break;
         // passthrough: Firefox/content keeps the event
+        default:
+          if (this.whichKeyForced) this.hideWhichKey();
+          break;
       }
       this.renderStatus();
+      this.flushPendingKeymap();
+    }
+
+    // One timer for every scheduled widget; none scheduled → zero timers.
+    // A statusbar reload tears this down and rebuilds it.
+    startWidgetScheduler() {
+      this.win.clearInterval(this.tickTimer);
+      this.tickTimer = null;
+      this.scheduler = createScheduler(this.widgets, Date.now());
+      if (this.scheduler.periodMs !== null) {
+        this.tickTimer = this.win.setInterval(
+          () => this.renderWidgets(this.scheduler.tick(Date.now())),
+          this.scheduler.periodMs
+        );
+      }
     }
 
     consume(event) {
@@ -469,6 +560,8 @@
       this.win.clearTimeout(this.pendingTimer);
       this.pendingTimer = this.win.setTimeout(() => {
         this.engine.handleTimeout();
+        // The sequence is over; its which-key panel goes with it.
+        if (!this.whichKeyForced) this.hideWhichKey();
         this.renderStatus();
       }, this.opt("pending_timeout_ms"));
     }
@@ -494,6 +587,7 @@
 
     setMode(mode) {
       this.engine.setMode(mode);
+      this.flushPendingKeymap();
       // Pick styling lives and dies with hint mode.
       if (mode !== MODE.HINT && this.bar) delete this.bar.dataset.pick;
       this.renderStatus();
@@ -513,6 +607,11 @@
         this.closePalette();
         this.setMode(MODE.NORMAL);
       } else if (
+        modeBefore === MODE.PANEL &&
+        !["panel_next", "panel_prev", "panel_mark", "panel_cycle", "panel_run", "esc"].includes(command)
+      ) {
+        this.closePanel();
+      } else if (
         modeBefore === MODE.HINT &&
         !["hints", "hint_key", "esc"].includes(command)
       ) {
@@ -524,6 +623,8 @@
     escapeEffects(modeBefore) {
       if (modeBefore === MODE.HINT) this.sendContent("Aether:HintsStop", {});
       if (modeBefore === MODE.PALETTE) this.closePalette();
+      if (modeBefore === MODE.PANEL) this.closePanel();
+      this.hideWhichKey();
       if (this.win.gURLBar.focused) this.win.gURLBar.blur();
       if (this.contentEditableFocused) this.sendContent("Aether:Blur", {});
       if (this.aiPromptFocused) this.exitAiPrompt();
@@ -737,11 +838,9 @@
         return;
       }
       const record = records[index === -1 ? 0 : index];
-      AetherGraveyard.exhume(record.id);
       this.closePalette();
       this.setMode(MODE.NORMAL);
-      this.newTab();
-      this.navigate(record.url);
+      this.exhumeRecord(record);
     }
 
     // --- workspaces ----------------------------------------------------------
@@ -1753,6 +1852,7 @@
       if (event.detail?.adoptedBy) return; // moved to another window, not dead
       if (PrivateBrowsingUtils.isWindowPrivate(this.win)) return; // never recorded, privacy rule
       const tab = event.target;
+      if (tab._aetherMoving) return; // r4 move-to-workspace: reopened elsewhere
       const url = this.win.gBrowser.getBrowserForTab(tab)?.currentURI?.spec;
       if (!isBuriable(url)) return; // blank/about: tabs carry no context
       AetherGraveyard.bury({
@@ -1760,6 +1860,7 @@
         title: tab.label ?? "",
         closedAt: Date.now(),
         workspace: this.workspaceOf(tab), // f5: buries carry the workspace name
+        meta: this.tabMeta()[this.tabId(tab)], // r4: rename/tags/mark ride along
       });
     }
 
@@ -1867,6 +1968,149 @@
       return sourceUsed;
     }
 
+    // r2: a SECOND var layer, in its own element, so a style edit and a theme
+    // edit stay independently applicable. Per-key fallback — one bad radius
+    // costs the radius, not the whole surface — and rejected keys are named
+    // once rather than silently defaulted.
+    applyStyle() {
+      const { style, rejected } = buildStyle(this.config.style);
+      const doc = this.win.document;
+      let el = doc.getElementById("aether-style");
+      if (!el) {
+        el = doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
+        el.id = "aether-style";
+        // After the theme element: same cascade order as the config layers.
+        doc.documentElement.appendChild(el);
+      }
+      el.textContent = emitStyleCss(style);
+      this.styleRejected = rejected;
+      if (rejected.length) this.showMessage(styleRejectedMessage(rejected.join(", ")));
+      return rejected;
+    }
+
+    // r1: the one path init and :config_reload both take. `domains` limits the
+    // work to what actually changed; init passes them all.
+    applyConfig(config, domains) {
+      const want = d => !domains || domains.has(d);
+      this.config = config;
+      if (want("style")) this.applyStyle();
+      if (want("theme")) {
+        this.applyTheme().catch(e => console.error("[aether] could not apply theme:", e));
+      }
+      if (want("keymap")) {
+        // A rebuilt engine starts in NORMAL, which would drop you out of
+        // insert mid-sentence. Carry the mode across; the caller has already
+        // decided it is safe to rebuild at all.
+        const mode = this.engine.mode;
+        this.clearPendingTimer();
+        this.engine = createEngine(config);
+        this.engine.setMode(mode);
+      }
+      if (want("statusbar")) {
+        this.widgets = resolveWidgets(config);
+        this.bar?.remove();
+        this.buildStatusbar();
+        // The palette and panel sit above the bar and hold a live reference to
+        // its parent — rebuild order matters, so re-anchor rather than rebuild.
+        if (this.paletteEl) this.bar.parentNode.insertBefore(this.paletteEl, this.bar);
+        if (this.panelEl) this.bar.parentNode.insertBefore(this.panelEl, this.bar);
+        if (this.whichKeyEl) this.bar.parentNode.insertBefore(this.whichKeyEl, this.bar);
+        this.startWidgetScheduler();
+      }
+      if (want("boosts")) {
+        this.boostsConfig = { ...AetherConfig.DEFAULTS.boosts, ...(config.boosts ?? {}) };
+        this.initBoosts().catch(e => console.error("[aether] could not re-init boosts:", e));
+      }
+      if (want("ai")) {
+        this.aiConfig = { ...AetherConfig.DEFAULTS.ai, ...(config.ai ?? {}) };
+      }
+      if (want("privacy")) this.applyDoh();
+      this.renderStatus();
+    }
+
+    // r1: save-to-apply. mtime polling rather than a file-watching API — one
+    // less platform surface. The file is stat'd TWICE, an interval apart, and
+    // read only when size and mtime are both stable, so a file mid-write (a
+    // `>` redirect, `sed -i`, a `git checkout`) is never parsed at all.
+    startConfigWatcher() {
+      if (this.config.options?.config_watch === false) return;
+      this.watchStamps = new Map();
+      this.watchTimer = this.win.setInterval(() => {
+        this.pollConfig().catch(() => {});
+      }, 1000);
+    }
+
+    async pollConfig() {
+      const paths = (this.config.sources ?? []).map(s => s.path).filter(Boolean);
+      let changed = false;
+      for (const path of paths) {
+        let stamp = null;
+        try {
+          const info = await IOUtils.stat(path);
+          stamp = `${info.lastModified}:${info.size}`;
+        } catch {
+          stamp = null; // absent is a stable state too
+        }
+        const seen = this.watchStamps.get(path);
+        // Two consecutive identical readings before we trust it.
+        if (seen?.last === stamp && seen?.applied !== stamp) {
+          this.watchStamps.set(path, { last: stamp, applied: stamp });
+          changed = true;
+        } else if (seen?.last !== stamp) {
+          this.watchStamps.set(path, { last: stamp, applied: seen?.applied });
+        }
+      }
+      if (changed && this.watchPrimed) await this.reloadConfig();
+      this.watchPrimed = true;
+    }
+
+    // r5: [privacy] doh is TOML-authoritative — the pref is the mechanism, the
+    // dotfile is the authority, so provenance can honestly read `dotfile`.
+    applyDoh() {
+      try {
+        const { mode, uri } = Settings.dohPrefs(this.config.privacy);
+        Services.prefs.setIntPref("network.trr.mode", mode);
+        if (uri) Services.prefs.setStringPref("network.trr.uri", uri);
+      } catch (e) {
+        console.error("[aether] could not apply DoH prefs:", e);
+      }
+    }
+
+    // r1: re-read, diff, apply only what changed, and name the restart-only
+    // paths rather than ignoring them. A parse failure is a no-op: load()
+    // hands back the previous config object identity-unchanged.
+    async reloadConfig() {
+      const previous = this.config;
+      const next = await AetherConfig.load();
+      const failed = (next.sources ?? []).find(s => s.exists && s.ok === false);
+      if (failed) {
+        this.showMessage(configUnchangedMessage(String(failed.errorLine ?? "?")));
+        return;
+      }
+      const { changed, restartOnly } = diffConfig(previous, next);
+      // Rebuilding the key matcher out of insert or hint mode would swallow
+      // the rest of what you were typing, and hint mode has live child state.
+      // deferKeymap() is true when the keymap must WAIT (its polarity note).
+      const defer = changed.has("keymap") && deferKeymap(this.engine.mode);
+      if (defer) changed.delete("keymap");
+      this.applyConfig(next, changed);
+      if (defer) this.pendingKeymapReload = true;
+      // applyStyle named any rejected keys; keep them beside the reload line
+      // rather than overwriting them with it.
+      const line = describeReload(changed, restartOnly);
+      const rejected = changed.has("style") ? this.styleRejected : [];
+      this.showMessage(rejected.length ? `${line} · ${styleRejectedMessage(rejected.join(", "))}` : line);
+    }
+
+    // r1: a keymap saved while typing waits for NORMAL, then applies —
+    // deferred, never dropped.
+    flushPendingKeymap() {
+      if (!this.pendingKeymapReload || this.engine.mode !== MODE.NORMAL) return;
+      this.pendingKeymapReload = false;
+      this.applyConfig(this.config, new Set(["keymap"]));
+      this.showMessage(describeReload(new Set(["keymap"]), new Set()));
+    }
+
     // --- browser plumbing ---------------------------------------------------
 
     sendContent(name, data) {
@@ -1953,6 +2197,487 @@
         this.clearMessage();
         this.updatePaletteCandidates();
       });
+    }
+
+    // --- r4: the panel primitive -------------------------------------------
+    //
+    // One surface, many sources. The pure module owns selection, marks,
+    // actions and filtering; this owns the DOM and the keyboard, and nothing
+    // else. Rows are addressed by key, never by index, so a source that
+    // replaces its rows under the cursor cannot land an action on the wrong
+    // one.
+    buildPanel() {
+      const doc = this.win.document;
+      const html = ns => doc.createElementNS("http://www.w3.org/1999/xhtml", ns);
+      const box = html("div");
+      box.id = "aether-panel";
+      box.hidden = true;
+
+      this.panelTitleEl = html("div");
+      this.panelTitleEl.className = "aether-panel-title";
+      this.panelRowsEl = html("div");
+      this.panelRowsEl.className = "aether-panel-rows";
+
+      const row = html("div");
+      row.className = "aether-panel-row";
+      this.panelActionEl = html("span");
+      this.panelActionEl.className = "aether-panel-action";
+      this.panelInput = html("input");
+      this.panelInput.className = "aether-panel-input";
+      row.append(this.panelActionEl, this.panelInput);
+
+      box.append(this.panelTitleEl, this.panelRowsEl, row);
+      this.bar.parentNode.insertBefore(box, this.bar);
+      this.panelEl = box;
+
+      this.panelInput.addEventListener("input", () => {
+        if (!this.panelState) return;
+        this.panelState = Panel.filter(this.panelState, this.panelInput.value);
+        this.renderPanel();
+      });
+    }
+
+    openPanel(source) {
+      this.panelSource = source;
+      this.panelState = Panel.createPanelState({
+        rows: source.rows(),
+        actions: source.actions,
+        keyBy: row => row.key,
+      });
+      this.panelTitleEl.textContent = source.title;
+      this.panelInput.value = "";
+      this.panelEl.hidden = false;
+      this.setMode(MODE.PANEL);
+      this.renderPanel();
+      this.panelInput.focus();
+    }
+
+    closePanel() {
+      this.panelEl.hidden = true;
+      this.panelState = null;
+      this.panelSource = null;
+      if (this.mode === MODE.PANEL) this.setMode(MODE.NORMAL);
+      this.win.gBrowser.selectedBrowser.focus();
+    }
+
+    renderPanel() {
+      const state = this.panelState;
+      if (!state) return;
+      const doc = this.win.document;
+      const max = this.opt("palette_max_items");
+      // `visible` is the filtered view (Panel.filter); `rows` is every row.
+      const pool = state.visible ?? state.rows;
+      const rows = pool.slice(0, max);
+      const moreCount = Math.max(0, pool.length - max);
+
+      this.panelRowsEl.textContent = "";
+      const selected = Panel.selectedRow(state);
+      const marked = new Set(Panel.markedRows(state).map(r => r.key));
+      for (const row of rows) {
+        const el = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        el.className = "aether-panel-item";
+        if (row === selected || row.key === selected?.key) el.classList.add("aether-selected");
+        if (marked.has(row.key)) el.classList.add("aether-marked");
+        // textContent only: a row is page-supplied text and never markup.
+        el.textContent = this.panelSource.render(row);
+        this.panelRowsEl.appendChild(el);
+      }
+      if (!rows.length) {
+        const el = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        el.className = "aether-panel-item aether-panel-empty";
+        el.textContent = PANEL_EMPTY_MESSAGE;
+        this.panelRowsEl.appendChild(el);
+      } else if (moreCount > 0) {
+        const el = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        el.className = "aether-panel-item aether-panel-more";
+        el.textContent = moreRow(String(moreCount));
+        this.panelRowsEl.appendChild(el);
+      }
+      this.panelActionEl.textContent = Panel.currentAction(state) ?? "";
+    }
+
+    panelMove(delta) {
+      if (!this.panelState) return;
+      this.panelState = Panel.move(this.panelState, delta);
+      this.renderPanel();
+    }
+
+    panelMark() {
+      if (!this.panelState) return;
+      this.panelState = Panel.toggleMark(this.panelState);
+      this.renderPanel();
+    }
+
+    panelCycle() {
+      if (!this.panelState) return;
+      this.panelState = Panel.cycleAction(this.panelState, 1);
+      this.renderPanel();
+    }
+
+    // Enter runs the current action over the marked rows, or the selection when
+    // nothing is marked. The source decides whether the panel survives it.
+    panelRun() {
+      const state = this.panelState;
+      const source = this.panelSource;
+      if (!state || !source) return;
+      const action = Panel.currentAction(state);
+      const rows = Panel.targets(state);
+      if (!rows.length) return;
+      let keepOpen = false;
+      try {
+        keepOpen = source.run(action, rows) === true;
+      } catch (e) {
+        console.error(`[aether] could not run panel action '${action}':`, e);
+      }
+      if (!keepOpen) {
+        this.closePanel();
+        return;
+      }
+      // The row set moved under us: re-resolve marks by key and say how many
+      // vanished rather than silently retargeting them.
+      const next = Panel.replaceRows(this.panelState, source.rows());
+      this.panelState = next.state ?? next;
+      const dropped = next.droppedMarks ?? 0;
+      if (dropped > 0) this.showMessage(droppedMarksMessage(String(dropped)));
+      this.renderPanel();
+    }
+
+    // --- r4: the tab source -------------------------------------------------
+    tabPanelSource() {
+      const self = this;
+      return {
+        title: "tabs",
+        actions: TabSource.TAB_ACTIONS,
+        rows: () => TabSource.buildRows(self.liveTabs(), self.tabMeta(), {
+          scope: self.config.panels?.scope,
+          workspace: AetherWorkspaces.model?.active ?? "",
+          currentId: self.tabId(self.win.gBrowser.selectedTab),
+        }),
+        render: row => row.text,
+        run: (action, rows) => self.runTabAction(action, rows),
+      };
+    }
+
+    // gBrowser tabs in the shape the pure module wants. `lastAccessed` is
+    // Firefox's own MRU stamp, which is why the module never has to track one.
+    liveTabs() {
+      return this.win.gBrowser.tabs
+        .filter(t => !t.closing)
+        .map(t => ({
+          id: this.tabId(t),
+          url: t.linkedBrowser?.currentURI?.spec ?? "",
+          title: t.label ?? "",
+          workspace: this.workspaceOf(t) ?? "",
+          lastAccessed: t.lastAccessed ?? 0,
+        }));
+    }
+
+    tabId(tab) {
+      if (!tab) return null;
+      if (tab._aetherWsId === undefined) return null;
+      return String(tab._aetherWsId);
+    }
+
+    tabFor(key) {
+      return this.win.gBrowser.tabs.find(t => this.tabId(t) === key) ?? null;
+    }
+
+    // r4 schema 3: live-tab metadata rides the workspaces file, next to b3's
+    // scroll records, and is copied onto the graveyard record at burial.
+    tabMeta() {
+      const model = AetherWorkspaces.model;
+      if (!model) return {};
+      if (!model.tabMeta) model.tabMeta = {};
+      return model.tabMeta;
+    }
+
+    setTabMeta(key, change) {
+      const model = AetherWorkspaces.model;
+      if (!model || key === null) return;
+      model.tabMeta = TabSource.applyMeta(this.tabMeta(), { ...change, id: key }, this.tabWorkspaces());
+      AetherWorkspaces.persist();
+    }
+
+    // Live tab id → workspace name: what applyMeta refreshes entries from.
+    tabWorkspaces() {
+      return new Map(this.liveTabs().filter(t => t.id !== null).map(t => [t.id, t.workspace]));
+    }
+
+    // `<id>` argument of the tab_* registry commands → a live tab key, or null.
+    tabKeyArg(ctx) {
+      const id = ctx?.args?.[0];
+      if (id !== undefined && this.tabFor(String(id))) return String(id);
+      this.showMessage(`no tab: ${id ?? ""}`);
+      return null;
+    }
+
+    // r4: containers are fixed per tab, so a move is reopen-there +
+    // close-here — and that close is a move, not a death: no graveyard.
+    moveTabToWorkspace(key, name) {
+      const tab = key === null ? null : this.tabFor(key);
+      if (!tab || !name) return;
+      const url = tab.linkedBrowser?.currentURI?.spec;
+      const meta = this.tabMeta()[key];
+      this.switchWorkspace(name);
+      this.newTab();
+      if (meta) this.setTabMeta(this.currentTabKey(), meta);
+      if (isBuriable(url)) this.navigate(url);
+      tab._aetherMoving = true;
+      this.win.gBrowser.removeTab(tab);
+    }
+
+    runTabAction(action, rows) {
+      const command = TabSource.ACTION_COMMANDS[action];
+      for (const row of rows) {
+        switch (command) {
+          case "tab_select": {
+            const tab = this.tabFor(row.key);
+            if (!tab) break;
+            // Picking a tab from another workspace goes there first.
+            if (row.workspace && row.workspace !== AetherWorkspaces.model?.active) {
+              this.switchWorkspace(row.workspace);
+            }
+            this.win.gBrowser.selectedTab = tab;
+            break;
+          }
+          case "tab_close": {
+            const tab = this.tabFor(row.key);
+            // The same close path as `x`, so it archives to the graveyard.
+            if (tab) this.win.gBrowser.removeTab(tab);
+            break;
+          }
+          case "tab_duplicate": {
+            const tab = this.tabFor(row.key);
+            if (tab) this.win.gBrowser.duplicateTab(tab);
+            break;
+          }
+          case "tab_pin":
+            this.setTabMeta(row.key, { pin: row.pin === null ? this.nextPin() : null });
+            break;
+          case "tab_rename":
+          case "tab_tag":
+          case "tab_move_ws":
+            // Typed text: hand off to the palette, prefilled with the registry
+            // command and this row's id — the panel stays a view over the
+            // registry, not a second implementation of it.
+            this.win.setTimeout(() => this.openPalette(`${command} ${row.key} `), 0);
+            return false;
+          default:
+            this.showMessage(`no glue for: ${action}`);
+            break;
+        }
+      }
+      // close/pin/duplicate keep the panel open; picking a tab dismisses it.
+      return command !== "tab_select";
+    }
+
+    currentTabKey() {
+      return this.tabId(this.win.gBrowser.selectedTab);
+    }
+
+    setMark(char) {
+      const key = this.currentTabKey();
+      if (!char || key === null) return;
+      this.setTabMeta(key, { mark: char });
+      this.showMessage(markSetMessage(char));
+    }
+
+    // Live tabs first, then the graveyard — which is what makes `'r` reopen a
+    // marked tab you closed.
+    jumpMark(char) {
+      if (!char) return;
+      const hit = TabSource.markResolve(this.tabMeta(), char, {
+        liveTabs: this.liveTabs(),
+        graveyard: AetherGraveyard.store?.records ?? [],
+      });
+      if (!hit) {
+        this.showMessage(noMarkMessage(char));
+        return;
+      }
+      const tab = hit.kind === "tab" ? this.tabFor(String(hit.id)) : null;
+      if (tab) {
+        this.win.gBrowser.selectedTab = tab;
+        return;
+      }
+      if (hit.kind === "graveyard" && hit.record) this.exhumeRecord(hit.record);
+      else this.showMessage(noMarkMessage(char));
+    }
+
+    // The one resurrection path (:graveyard and 'mark): exhume, reopen in a
+    // new tab, and hand the record's r4 metadata back to the new tab.
+    exhumeRecord(record) {
+      const revived = AetherGraveyard.exhume(record.id) ?? record;
+      if (!revived?.url) return;
+      this.newTab();
+      if (revived.meta) this.setTabMeta(this.currentTabKey(), revived.meta);
+      this.navigate(revived.url);
+    }
+
+    gotoPin(n) {
+      const pin = Number(n);
+      const entry = Object.entries(this.tabMeta()).find(([, m]) => m?.pin === pin);
+      const tab = entry ? this.tabFor(entry[0]) : null;
+      if (tab) this.win.gBrowser.selectedTab = tab;
+    }
+
+    nextPin() {
+      const used = new Set(
+        Object.values(this.tabMeta())
+          .map(m => m?.pin)
+          .filter(p => typeof p === "number")
+      );
+      for (let i = 1; i <= 9; i++) if (!used.has(i)) return i;
+      return null;
+    }
+
+    // --- r5: the settings source --------------------------------------------
+    settingsPanelSource() {
+      const self = this;
+      return {
+        title: "settings",
+        actions: ["edit", "reset", "copy"],
+        rows: () =>
+          Settings.buildRows(Settings.SCHEMA, Settings.layersFromConfig(self.config, self.settingsPrefs())),
+        render: row =>
+          `${row.path}  ${self.settingsValueText(row.value)}  [${row.provenance}]`,
+        run: (action, rows) => self.runSettingsAction(action, rows),
+      };
+    }
+
+    settingsValueText(value) {
+      if (Array.isArray(value)) return value.join(" ");
+      return String(value);
+    }
+
+    settingsPrefs() {
+      const prefs = {};
+      try {
+        if (Services.prefs.prefHasUserValue(AI_PREF)) {
+          prefs["ai.enabled"] = Services.prefs.getBoolPref(AI_PREF);
+        }
+      } catch {}
+      return prefs;
+    }
+
+    runSettingsAction(action, rows) {
+      for (const row of rows) {
+        if (action === "copy") {
+          this.copyText(Settings.tomlLine(row.path, row.value));
+          this.showMessage(`copied: ${row.path}`);
+          continue;
+        }
+        if (action === "reset") {
+          this.writeLocalConfig(t => Settings.resetOverride(t, row.path).table);
+          this.showMessage(settingResetMessage(row.path));
+          continue;
+        }
+        // edit: booleans toggle and enums cycle in place; everything else
+        // needs a typed value, which is a prompt this pass does not build.
+        let next;
+        if (row.type === "bool") next = !row.value;
+        else if (row.enum) next = row.enum[(row.enum.indexOf(row.value) + 1) % row.enum.length];
+        else {
+          this.showMessage(`edit ${row.path} in the dotfile`);
+          continue;
+        }
+        const result = Settings.setOverride(this.localConfigTable(), row.path, next);
+        if (result?.error) {
+          this.showMessage(settingRejectedMessage(row.path));
+          continue;
+        }
+        this.writeLocalConfig(() => result.table ?? result);
+        this.showMessage(settingSavedMessage(row.path));
+      }
+      return true;
+    }
+
+    // Seeded from the local layer the config actually loaded, so an edit
+    // after a relaunch (or a hand edit) layers onto the file instead of
+    // replacing it with a one-key file.
+    localConfigTable() {
+      if (!this.localConfig) {
+        const { local } = Settings.layersFromConfig(this.config, this.settingsPrefs());
+        this.localConfig = JSON.parse(JSON.stringify(local ?? {}));
+      }
+      return this.localConfig;
+    }
+
+    // The panel owns aether.local.toml and nothing else — the hand-written
+    // dotfile is never rewritten.
+    writeLocalConfig(mutate) {
+      const table = mutate(this.localConfigTable());
+      this.localConfig = table;
+      const path = PathUtils.join(
+        Services.dirsvc.get("Home", Ci.nsIFile).path,
+        ".config",
+        "aether",
+        "aether.local.toml"
+      );
+      const text = Settings.emitLocalToml(table); // carries its own header
+      IOUtils.writeUTF8(path, text, { tmpPath: `${path}.tmp` })
+        .then(() => this.reloadConfig())
+        .catch(e => console.error("[aether] could not write the local config:", e));
+    }
+
+    copyText(text) {
+      try {
+        Cc["@mozilla.org/widget/clipboardhelper;1"]
+          .getService(Ci.nsIClipboardHelper)
+          .copyString(text);
+      } catch (e) {
+        console.error("[aether] could not copy:", e);
+      }
+    }
+
+    // --- r3: which-key -------------------------------------------------------
+    buildWhichKey() {
+      const doc = this.win.document;
+      const box = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      box.id = "aether-whichkey";
+      box.hidden = true;
+      this.bar.parentNode.insertBefore(box, this.bar);
+      this.whichKeyEl = box;
+    }
+
+    // Rendered from state the key engine already holds. Never on the dispatch
+    // path: the sequence resolves on exactly the same timing either way.
+    showWhichKey(prefix, forced) {
+      const rows = WhichKey.candidatesFor(this.config.keymap?.normal ?? {}, prefix);
+      const { rows: shown, moreCount } = WhichKey.truncate(rows, this.opt("palette_max_items"));
+      const doc = this.win.document;
+      this.whichKeyEl.textContent = "";
+      for (const row of shown) {
+        const el = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        el.className = "aether-whichkey-row";
+        el.textContent = `${row.remaining} → ${row.description}`;
+        this.whichKeyEl.appendChild(el);
+      }
+      if (moreCount > 0) {
+        const el = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        el.className = "aether-whichkey-row aether-whichkey-more";
+        el.textContent = moreRow(String(moreCount));
+        this.whichKeyEl.appendChild(el);
+      }
+      this.whichKeyEl.hidden = shown.length === 0;
+      this.whichKeyForced = forced === true;
+    }
+
+    hideWhichKey() {
+      if (this.whichKeyEl) this.whichKeyEl.hidden = true;
+      this.whichKeyForced = false;
+      this.win.clearTimeout(this.whichKeyTimer);
+      this.whichKeyTimer = null;
+    }
+
+    scheduleWhichKey() {
+      const ms = this.opt("which_key_ms");
+      this.win.clearTimeout(this.whichKeyTimer);
+      if (!WhichKey.shouldShow({ pendingKeys: this.engine.buffer, whichKeyMs: ms, elapsedMs: ms })) {
+        return;
+      }
+      this.whichKeyTimer = this.win.setTimeout(() => {
+        if (this.engine.buffer) this.showWhichKey(this.engine.buffer, false);
+      }, Math.max(0, ms));
     }
 
     renderCandidates() {

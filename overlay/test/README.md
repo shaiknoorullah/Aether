@@ -31,3 +31,23 @@ under Xvfb with the overlay wired in, drives it with xdotool, and captures
 labeled screenshots to `visual/shots/` for review. This layer is where
 keyboard interception, chrome hiding, and actor behavior get verified —
 everything the purity rule keeps out of `unit/`.
+
+### Running visual/ against stock Firefox
+
+`run.sh` writes the autoconfig loader into the app directory, so point it at a
+**writable copy**, never the system install:
+
+```sh
+cp -a /usr/lib/firefox /tmp/ff
+AETHER_APP_DIR=/tmp/ff AETHER_APP_BIN=/tmp/ff/firefox \
+AETHER_TEST_PROFILE=/tmp/aether-test-profile \
+HOME=/tmp/aether-test-home MOZ_ENABLE_WAYLAND=0 WAYLAND_DISPLAY= \
+  overlay/test/visual/run.sh scenarios.d/h1-live-config-reload.sh
+```
+
+Needs `Xvfb`, `xdotool`, `xwd` and ImageMagick. A scratch `HOME` keeps the
+scenarios' dotfile rewrites away from your real `~/.config/aether`.
+
+The h-series (`h1`–`h5`, v1.2.0) records verdicts instead of failing fast —
+`$SHOTS/h-results.txt` holds one PASS/FAIL line per check — and asserts motion
+through `pages/scroll-title.html`, whose window title is its scroll position.

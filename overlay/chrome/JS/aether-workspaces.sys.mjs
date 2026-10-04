@@ -12,8 +12,11 @@
 // first ref) — persisted so restore lands on the active workspace's
 // lastActive tab. contexts (b3): per-tab {url, scrollY, capturedAt} records
 // keyed by ref id — serialized as schema 2, sanitized on deserialize.
+// tabMeta (r4): per-tab {rename, tags, pin, mark, workspace} keyed by ref id,
+// owned by aether-tabsource — schema 3, same honest-id rule as contexts.
 
 import { dropContext, sanitizeContexts } from "./aether-resurrect.sys.mjs";
+import { serializeMeta, deserializeMeta } from "./aether-tabsource.sys.mjs";
 
 // Neutral statusbar copy — no error states, no scolding.
 export function nameInUseMessage(name) {
@@ -38,6 +41,7 @@ export function createModel(defaultName) {
       { name: defaultName, containerId: 0, tabRefs: [], lastActive: 0, selectedId: null },
     ],
     contexts: {},
+    tabMeta: {},
   };
 }
 
@@ -151,6 +155,8 @@ function detachRef(model, id) {
 export function removeTab(model, id) {
   detachRef(model, id);
   dropContext(model, id);
+  // r4: the metadata left with the graveyard record at burial.
+  if (model.tabMeta) delete model.tabMeta[String(id)];
 }
 
 export function tabsOf(model, name) {
@@ -159,11 +165,12 @@ export function tabsOf(model, name) {
 
 export function serialize(model) {
   return JSON.stringify({
-    schema: 2, // b3: contexts joined the file — additive, old readers ignore both
+    schema: 3, // r4: tabMeta joined the file — additive, like b3's contexts
     active: model.active,
     nextId: model.nextId,
     workspaces: model.workspaces,
     contexts: model.contexts ?? {},
+    tabMeta: JSON.parse(serializeMeta(model.tabMeta ?? {})).tabMeta,
   });
 }
 
@@ -227,5 +234,12 @@ export function deserialize(text, defaultName) {
   for (const key of Object.keys(sanitized)) {
     if (seenIds.has(Number(key))) contexts[key] = sanitized[key];
   }
-  return { active, nextId, workspaces, contexts };
+  // r4 tabMeta: the same honest-id rule — metadata never misattaches to an
+  // orphan's fresh id. Schema-2 and schema-less files simply have none.
+  const tabMeta = {};
+  const { meta } = deserializeMeta({ tabMeta: parsed.tabMeta });
+  for (const key of Object.keys(meta)) {
+    if (seenIds.has(Number(key))) tabMeta[key] = meta[key];
+  }
+  return { active, nextId, workspaces, contexts, tabMeta };
 }

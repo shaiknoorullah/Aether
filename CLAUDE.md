@@ -4,7 +4,7 @@
 
 Aether is the browser I want to live in: local-first, keyboard-driven, built as a **thin Gecko overlay**. It's shaped by how I actually work — Arch, tmux, vim, everything in dotfiles — and published as free software (AGPL-3.0-or-later) because that's how I think software should exist. **Not a startup, never monetized** — but personal-first, not personal-only: I build what I daily-drive, and the hope is it grows into something the community adopts, the way Zen and LibreWolf did. My own daily use stays the requirements filter until real users exist.
 
-Honest status: **v1.1.0 is built and working** — the full adoption floor (modal keys+palette, statusbar widgets, pywal theming, vertical tabs+graveyard, workspaces+persistence, EF supports, local-AI sidebar) plus site boosts (`:zap`, AI `:boost`) and context resurrection. ~5,100 runtime-path lines, 322 unit tests, screenshot-verified visual suite, zero deps/build/patches. Current milestone: the 30-day daily-drive gate (`docs/execution-plan.md` Phase 2).
+Honest status: **v1.2.0 is built and visually verified** (2026-10-04, stock Firefox 150) — the adoption floor, site boosts + AI boosts, context resurrection, and the rice pass (live config reload, style layer + motion, which-key, tab panel, settings panel). Verification found 13 glue bugs the unit tests could not see; all fixed. ~9,250 runtime-path lines (8,368 privileged JS — v1.1.0 was 4,451), 794 unit tests, screenshot-verified visual suite (h-series asserts mechanically), zero deps/build/patches. Current milestone: the 30-day daily-drive gate, run 2 (`docs/friction-log.md`).
 
 ## Rules I Hold Myself To
 
@@ -62,8 +62,8 @@ Caveats I keep on record because honesty is the point: "300% push-spam" was neve
 
 ## Next
 
-1. **The daily-drive gate** (Phase 2): 30 days from 2026-08-14 as my default browser, friction log, one line per annoyance. Every entry becomes a fix, a cut, or evidence for what ships next.
-2. **v1.2.0 (rice) then v1.3.0 (mods)** — specs written (`overlay/specs/r1–r5`, `x1–x4`). Direction: port Nyxt's *ideas* in Aether's idiom, UX-first, Hyprland-class riceable. Not Nyxt's feature list — that's unbounded and eats the budget.
+1. **The daily-drive gate, run 2** (Phase 2): run 1 (from 2026-08-14) lapsed with no verdict — see `docs/friction-log.md`. Run 2 starts on install, with a mandatory Sunday line. Every entry becomes a fix, a cut, or evidence for what ships next.
+2. **v1.3.0 (mods)** — specs written (`overlay/specs/x1–x4`); v1.2.0 shipped and verified. Direction: port Nyxt's *ideas* in Aether's idiom, UX-first, Hyprland-class riceable. Not Nyxt's feature list — that's unbounded and eats the budget.
 3. Then v1.4.0 panels, v2.0.0 `aetherd` (integration weight off the rebase treadmill), v2.1.0 agent (the registry *is* the API). Sync resolves Iroh vs js-libp2p when it's built, not before.
 4. Refresh or delete `AGENTS.md` (README rewritten 2026-08-12).
 5. Monthly rebase drill: re-run `overlay/install.sh` after each Firefox update (pacman hook), log the cost.

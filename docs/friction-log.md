@@ -1,6 +1,10 @@
 # Friction Log — Phase 2 Daily-Drive Gate
 
-Started **2026-08-14**, day 1 of 30. The overlay went live on this machine today
+**Run 2 started 2026-10-04**, day 1 of 30 — see [Run 2](#run-2--2026-10-04--2026-11-02)
+at the bottom. Run 1 lapsed; what it showed is recorded under
+[Run 1 outcome](#run-1-outcome).
+
+Run 1 started **2026-08-14**, day 1 of 30. The overlay went live on this machine today
 (autoconfig was installing into the wrong directory until now, so nothing had
 ever actually run).
 
@@ -53,3 +57,42 @@ Format: `- YYYY-MM-DD — what happened` and, at review, append `→ fix|cut|liv
 - Do top-frame-only hints fail on sites I actually use?
 - Does 2,009 lines of glue in `aether.uc.js` show up as *felt* instability, or
   only as rebase cost?
+
+---
+
+## Run 1 outcome
+
+Scheduled 2026-08-14 → 2026-09-13. **No verdict was ever recorded.** The log
+holds the four day-1 lines above and nothing after; the last commit to the repo
+is the same day, and v1.2.0 — built that afternoon — sat on an unmerged branch
+with no visual verification. If the browser was used after day 1, none of that
+use reached this file.
+
+Read honestly, the run shows one thing: **the gate question was not asked
+daily.** Whether the browser was used and simply not logged, or not used, the
+gate cannot distinguish — which is the same failure, because an unlogged month
+is not evidence. Not "the floor failed"; the gate's own mechanism failed.
+
+The day-1 lines were resolved at the time (all four became v1.2.0 specs or
+fixes). The four open questions carry into run 2 unchanged — none were answered.
+
+---
+
+## Run 2 — 2026-10-04 → 2026-11-02
+
+Same question, same rule, same format. Differences from run 1:
+
+- **This machine**, stock Firefox 150 (`/usr/lib/firefox`), overlay at v1.2.0
+  (`feat/v1.2.0-pure-layer`), installed from this checkout.
+- **Day 1 starts when the profile first launches here**, not when this line was
+  written — install needs sudo for the autoconfig files. Re-date this header if
+  that slips.
+- **A weekly review line is mandatory** — one per Sunday, even if it reads
+  "no friction this week". Run 1 died silently; a missing Sunday line is now a
+  visible failure instead of an absence.
+- Firefox 150 is itself the first monthly drill: the overlay loads and the
+  pre-existing f1 scenario passes on it with zero changes (2026-10-04).
+
+### Week 1
+
+- 2026-10-04 — (install day; first line goes here)

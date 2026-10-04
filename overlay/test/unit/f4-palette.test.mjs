@@ -11,17 +11,17 @@ import { REGISTRY, parse, complete } from "../../chrome/JS/aether-palette.sys.mj
 
 // 14. registry membership + completion ---------------------------------------
 
-test("palette: 'graveyard' and 'tabs_toggle' are registry commands", () => {
+test("palette: 'graveyard' is a registry command; 'tabs_toggle' was deleted with the strip (r4)", () => {
   assert.ok("graveyard" in REGISTRY, "registry must contain 'graveyard'");
-  assert.ok("tabs_toggle" in REGISTRY, "registry must contain 'tabs_toggle'");
+  assert.ok("tabs" in REGISTRY, "registry must contain 'tabs_toggle'");
 });
 
 test("palette: complete('grav') → exactly ['graveyard']", () => {
   assert.deepEqual(complete("grav", REGISTRY), ["graveyard"]);
 });
 
-test("palette: complete('tabs') includes 'tabs_toggle'", () => {
-  assert.ok(complete("tabs", REGISTRY).includes("tabs_toggle"));
+test("palette: complete('tabs') finds the tab panel, not the deleted strip toggle", () => {
+  assert.ok(complete("tabs", REGISTRY).includes("tabs"));
 });
 
 // 15. parse: optional query args ---------------------------------------------
@@ -39,8 +39,8 @@ test("palette: parse('graveyard') with no query is valid (query optional), not u
   assert.deepEqual(r.args, []);
 });
 
-test("palette: parse('tabs_toggle') → runnable with no args", () => {
-  const r = parse("tabs_toggle");
-  assert.equal(r.name, "tabs_toggle");
+test("palette: parse('tabs') → runnable with no args (the panel replaces the toggle)", () => {
+  const r = parse("tabs");
+  assert.equal(r.name, "tabs");
   assert.deepEqual(r.args, []);
 });
