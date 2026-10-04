@@ -14,6 +14,5 @@ PNGs are committed so `overlay/install.sh` stays dependency-free. After editing
 `aether.svg`, re-render with `scripts/render-icons.sh` (needs `rsvg-convert`) and
 commit both. The 16 px render is the one to check by eye.
 
-License: same as the project (AGPL-3.0-or-later) until decided otherwise —
-a mark people may want to reuse (packagers, theme authors) is often put under
-CC-BY-SA-4.0 instead; that is an open decision, not a default.
+License: AGPL-3.0-or-later, same as the project (decided 2026-10-04; see
+`LICENSE` at the repository root).
