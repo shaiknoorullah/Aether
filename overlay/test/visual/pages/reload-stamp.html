@@ -1,0 +1,8 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- r1 state 7: every load writes a fresh stamp into the title, so a reload is
+     provable from the window title alone. -->
+<title>reload stamp</title>
+<script>document.title = "reload stamp " + Date.now() + "-" + Math.random().toString(36).slice(2, 8);</script>
+<h1>reload stamp</h1>
+<p>The window title changes on every load. <code>r</code> must change it.</p>

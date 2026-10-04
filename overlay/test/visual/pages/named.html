@@ -1,0 +1,8 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- r4 fixture: one file, many distinctly-titled tabs. named.html#alpha is
+     titled "h4 alpha", so panel filtering and wait_title have real targets. -->
+<title>h4 unnamed</title>
+<script>document.title = "h4 " + (decodeURIComponent(location.hash.slice(1)) || "unnamed");</script>
+<h1 id="name"></h1>
+<script>document.getElementById("name").textContent = document.title;</script>
