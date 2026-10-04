@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Actions are SHA-pinned; dependabot bumps the SHA and the version comment
+  # together. Nothing else here has a package manager to watch.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

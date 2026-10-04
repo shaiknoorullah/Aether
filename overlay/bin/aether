@@ -1,24 +1,40 @@
 #!/usr/bin/env bash
 # Launch Firefox with the aether profile. -purge clears the startup cache first
-# (needed after editing overlay scripts; harmless otherwise).
+# (needed after editing overlay scripts; harmless otherwise). --version prints
+# the overlay version (overlay/VERSION) and the Firefox it runs on.
 set -euo pipefail
 
 PROFILE_NAME="aether"
 MOZ_DIR="${HOME}/.mozilla/firefox"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+if [[ "${1:-}" == "--version" ]]; then
+  printf 'aether %s on %s\n' "$(cat "${HERE}/../VERSION" 2>/dev/null || echo unknown)" "$(firefox --version 2>/dev/null || echo 'no firefox')"
+  exit 0
+fi
 
 if [[ "${1:-}" == "-purge" ]]; then
   shift
-  profile_path="$(MOZ_DIR="$MOZ_DIR" awk -F= -v name="$PROFILE_NAME" '
-    /^\[/{n=""; p=""; rel=1}
-    $1=="Name"{n=$2}
-    $1=="IsRelative"{rel=$2}
-    $1=="Path"{p=$2}
-    n==name && p!="" {print (rel=="1" ? ENVIRON["MOZ_DIR"] "/" p : p); exit}
-  ' "${MOZ_DIR}/profiles.ini")"
+  # Legacy ~/.mozilla first, then Firefox 147+'s XDG location (fresh machines).
+  profile_path=""
+  for moz in "$MOZ_DIR" "${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox"; do
+    [[ -f "${moz}/profiles.ini" ]] || continue
+    profile_path="$(awk -F= -v name="$PROFILE_NAME" -v moz="$moz" '
+      /^\[/{n=""; p=""; rel=1}
+      $1=="Name"{n=$2}
+      $1=="IsRelative"{rel=$2}
+      $1=="Path"{p=$2}
+      n==name && p!="" {print (rel=="1" ? moz "/" p : p); exit}
+    ' "${moz}/profiles.ini")"
+    [[ -n "$profile_path" ]] && break
+  done
   if [[ -n "$profile_path" && -d "${profile_path}/startupCache" ]]; then
-    rm -rf "${profile_path}/startupCache"
+    rm -rf "${profile_path:?}/startupCache"
     echo "[aether] startup cache purged"
   fi
 fi
 
-exec firefox --no-remote -P "$PROFILE_NAME" "$@"
+# --class sets X11 WM_CLASS, --name sets the instance name and the Wayland
+# app_id: together they make launchers and taskbars group this window as
+# Aether (matching StartupWMClass=aether in aether.desktop), not as Firefox.
+exec firefox --no-remote --class=aether --name=aether -P "$PROFILE_NAME" "$@"

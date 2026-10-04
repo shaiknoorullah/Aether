@@ -1,0 +1,54 @@
+# git-cliff config — CHANGELOG.md and per-release notes from the commit log.
+# Commits follow conventional style: feat|fix|docs|refactor|test|ci|build|chore,
+# optional scope (overlay, assets, v1.2.0, …). Regenerate the whole file with:
+#   git-cliff --output CHANGELOG.md
+# One release's notes (what release.yml publishes):
+#   git-cliff --latest --strip header
+
+[changelog]
+header = """
+# Changelog
+
+Generated from commit messages by [git-cliff](https://git-cliff.org) — do not
+edit by hand; fix the commit message convention instead. Per-release
+highlights live in `docs/releases/`.\n
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
+{{ commit.message | split(pat="\n") | first | trim }} \
+([{{ commit.id | truncate(length=7, end="") }}](https://github.com/shaiknoorullah/Aether/commit/{{ commit.id }}))\
+{% endfor %}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+topo_order = false
+sort_commits = "newest"
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Refactors" },
+  { message = "^test", group = "<!-- 4 -->Tests" },
+  { message = "^docs", group = "<!-- 5 -->Docs" },
+  { message = "^(ci|build)", group = "<!-- 6 -->Build & release" },
+  { message = "^Merge pull request", skip = true },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = ".*", group = "<!-- 7 -->Other" },
+]
