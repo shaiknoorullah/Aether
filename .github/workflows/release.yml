@@ -1,0 +1,109 @@
+name: release
+
+# Push a vX.Y.Z tag whose number matches overlay/VERSION → tests, a
+# deterministic tarball, SHA256SUMS, build-provenance attestation, and a GitHub
+# release whose notes are docs/releases/vX.Y.Z.md + the git-cliff section.
+# Runbook: docs/releasing.md.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: build, attest, publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write     # create the release and upload assets
+      id-token: write     # Sigstore signing for the provenance attestation
+      attestations: write # store the attestation on the repo
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # git-cliff needs the history and the previous tag
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          package-manager-cache: false # no cache in a publishing job (poisoning)
+
+      - name: tag matches overlay/VERSION
+        run: |
+          version="$(tr -d '[:space:]' < overlay/VERSION)"
+          if [[ "v${version}" != "${TAG}" ]]; then
+            echo "::error::tag ${TAG} does not match overlay/VERSION (${version})"
+            exit 1
+          fi
+
+      - name: unit tests
+        run: node --test overlay/test/unit/
+
+      - name: budget
+        run: scripts/check-budget.sh
+
+      - name: tarball + checksums
+        run: |
+          name="aether-${TAG#v}"
+          paths=(overlay/bin overlay/chrome overlay/config overlay/loader overlay/prefs
+                 overlay/share overlay/install.sh overlay/VERSION overlay/README.md
+                 assets/logo README.md CHANGELOG.md)
+          if git cat-file -e "${TAG}:LICENSE" 2>/dev/null; then paths+=(LICENSE); fi
+          mkdir -p dist
+          # git archive is deterministic for a given tree; gzip -n drops the
+          # name and timestamp, so the same tag always yields the same bytes.
+          git archive --format=tar --prefix="${name}/" "${TAG}" -- "${paths[@]}" \
+            | gzip -n -9 > "dist/${name}.tar.gz"
+          (cd dist && sha256sum "${name}.tar.gz" > SHA256SUMS && cat SHA256SUMS)
+
+      - name: release notes
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/cliff"
+          "${RUNNER_TEMP}/cliff/bin/pip" install --quiet --require-hashes --no-deps \
+            -r .github/release-requirements.txt
+          {
+            if [[ -f "docs/releases/${TAG}.md" ]]; then
+              sed '/^<!--/,/^-->/d' "docs/releases/${TAG}.md"
+              echo
+            fi
+            "${RUNNER_TEMP}/cliff/bin/git-cliff" --latest --strip header
+            cat <<EOF
+
+          ## Install
+
+          \`\`\`sh
+          tar xzf aether-${TAG#v}.tar.gz && cd aether-${TAG#v}/overlay && ./install.sh
+          \`\`\`
+
+          ## Verify
+
+          \`\`\`sh
+          sha256sum -c SHA256SUMS
+          gh attestation verify aether-${TAG#v}.tar.gz --repo ${GITHUB_REPOSITORY}
+          \`\`\`
+          EOF
+          } > dist/notes.md
+          cat dist/notes.md
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/aether-*.tar.gz
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${TAG}" dist/aether-*.tar.gz dist/SHA256SUMS \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Aether ${TAG#v}" \
+            --notes-file dist/notes.md \
+            --verify-tag

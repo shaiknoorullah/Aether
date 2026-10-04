@@ -1,0 +1,6 @@
+# Release tooling, hash-pinned (pip --require-hashes). git-cliff ships a
+# self-contained binary wheel; this hash is the manylinux x86_64 wheel that
+# ubuntu-24.04 runners install. Bump: pip download --no-deps --only-binary=:all:
+#   --platform manylinux_2_17_x86_64 git-cliff==X && pip hash <wheel>
+git-cliff==2.14.2 \
+    --hash=sha256:603ebf8d12e1f2a5214e0174c15c492bc36895f38784d6818869c09897433174
