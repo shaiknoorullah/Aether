@@ -1,0 +1,13 @@
+post_install() {
+  cat <<'EOF'
+==> Aether is installed system-wide. Each user runs the per-user setup once:
+      /usr/share/aether/overlay/install.sh
+    (it finds the packaged autoconfig already current, needs no sudo, and
+    creates the 'aether' profile, user.js and ~/.config/aether/aether.toml.)
+    Do not also run a checkout's install.sh with sudo — pick one install path.
+EOF
+}
+
+post_upgrade() {
+  echo "==> Aether upgraded: relaunch with 'aether -purge' to clear the startup cache."
+}

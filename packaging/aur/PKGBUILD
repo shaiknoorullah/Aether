@@ -1,0 +1,60 @@
+# DRAFT — not published to the AUR. See packaging/aur/README.md for the open
+# questions (autoconfig ownership, per-user setup) before this goes anywhere.
+#
+# Maintainer: Shaik Noorullah <shaiknooru247@gmail.com>
+pkgname=aether-git
+pkgver=1.1.0.r31.g0775878
+pkgrel=1
+pkgdesc="Keyboard-driven, local-first browser — a thin overlay on stock Firefox"
+arch=(any)
+url="https://github.com/shaiknoorullah/Aether"
+license=(AGPL-3.0-or-later)
+depends=(firefox bash)
+makedepends=(git)
+provides=(aether)
+conflicts=(aether)
+install=aether.install
+source=("$pkgname::git+$url.git"
+        aether-firefox.hook)
+sha256sums=('SKIP'
+            '68305222e30661618886316db423f6926304cbffb10e3220d0360978a7fea3ac')
+
+pkgver() {
+  cd "$pkgname"
+  git describe --long --tags --abbrev=7 | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+package() {
+  cd "$pkgname"
+  local share="$pkgdir/usr/share/aether"
+
+  # The overlay tree, read-only. Each user's profile symlinks to its chrome/.
+  install -d "$share"
+  cp -r --no-preserve=ownership overlay assets "$share/"
+  rm -rf "${share:?}/overlay/test" "${share:?}/overlay/specs"
+
+  # Launcher on PATH + system-wide desktop entry and icons.
+  install -d "$pkgdir/usr/bin"
+  ln -s /usr/share/aether/overlay/bin/aether "$pkgdir/usr/bin/aether"
+  install -Dm644 overlay/share/aether.desktop "$pkgdir/usr/share/applications/aether.desktop"
+  local size
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "assets/logo/png/aether-$size.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/aether.png"
+  done
+  install -Dm644 assets/logo/aether.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/aether.svg"
+  install -Dm644 assets/logo/aether-symbolic.svg \
+    "$pkgdir/usr/share/icons/hicolor/symbolic/apps/aether-symbolic.svg"
+
+  # Autoconfig, owned by this package so pacman tracks it (install.sh's
+  # sudo step becomes unnecessary). Distinct names from install.sh's
+  # config.js / config-prefs.js — the two install paths are exclusive.
+  install -Dm644 overlay/loader/zz-aether.js "$pkgdir/usr/lib/firefox/defaults/pref/zz-aether.js"
+  { echo "// aether (package)"; cat overlay/loader/aether-loader.cfg; } \
+    | install -Dm644 /dev/stdin "$pkgdir/usr/lib/firefox/aether.cfg"
+  printf 'pref("general.config.filename", "aether.cfg");\npref("general.config.obscure_value", 0);\n' \
+    | install -Dm644 /dev/stdin "$pkgdir/usr/lib/firefox/defaults/pref/aether-autoconfig.js"
+
+  # The monthly drill's reminder: a Firefox upgrade is when the overlay can break.
+  install -Dm644 "$srcdir/aether-firefox.hook" "$pkgdir/usr/share/libalpm/hooks/aether-firefox.hook"
+}

@@ -1,0 +1,9 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = firefox
+
+[Action]
+Description = Aether: Firefox changed — run the monthly drill (aether -purge, then the visual suite)
+When = PostTransaction
+Exec = /usr/bin/printf '%s\n' "==> Aether: Firefox was upgraded. Relaunch with 'aether -purge' and log the drill (docs/execution-plan.md, Standing Drills)."
